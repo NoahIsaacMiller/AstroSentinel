@@ -1,9 +1,9 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Language, SpaceTarget, TargetType } from '../types';
 import { TRANSLATIONS, TYPE_LABELS } from '../constants';
 import { PhysicsEngine } from '../utils';
-import { Edit, Trash, Filter, Plus, X, Save, Download } from 'lucide-react';
+import { Edit, Trash, Filter, Plus, X, Save, Download, Upload, FileText } from 'lucide-react';
 
 interface TargetManagerProps {
   language: Language;
@@ -15,6 +15,7 @@ interface TargetManagerProps {
 const TargetManager: React.FC<TargetManagerProps> = ({ language, targets, onAddTarget, onRemoveTarget }) => {
   const t = TRANSLATIONS[language].targets;
   const typeLabels = TYPE_LABELS[language];
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [filter, setFilter] = useState<TargetType | 'ALL'>('ALL');
   const [showImportModal, setShowImportModal] = useState(false);
@@ -30,13 +31,12 @@ const TargetManager: React.FC<TargetManagerProps> = ({ language, targets, onAddT
 
   const filteredTargets = filter === 'ALL' ? targets : targets.filter(t => t.type === filter);
 
-  const handleImport = () => {
+  const handleSingleImport = () => {
     const lines = tleInput.trim().split('\n');
     if (lines.length < 2) {
        alert("Invalid TLE: Need at least 2 lines.");
        return;
     }
-    // Simple cleaning
     const l1 = lines[0].trim();
     const l2 = lines[1].trim();
     
@@ -46,7 +46,6 @@ const TargetManager: React.FC<TargetManagerProps> = ({ language, targets, onAddT
        return;
     }
     
-    // Assign color based on type
     orbit.color = importType === TargetType.STATION ? '#22d3ee' : 
                   importType === TargetType.DEBRIS ? '#ef4444' : '#34d399';
 
@@ -68,6 +67,46 @@ const TargetManager: React.FC<TargetManagerProps> = ({ language, targets, onAddT
     setImportName('');
   };
 
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        const text = event.target?.result as string;
+        const bulkData = PhysicsEngine.parseBulkTLE(text);
+        
+        if (bulkData.length === 0) {
+            alert("No valid TLEs found in file.");
+            return;
+        }
+
+        if (window.confirm(`Found ${bulkData.length} targets. Import all?`)) {
+            bulkData.forEach(item => {
+                const orbit = PhysicsEngine.parseTLE(item.l1, item.l2);
+                if (orbit) {
+                    orbit.color = '#34d399'; // Default bulk color
+                    const t: SpaceTarget = {
+                        id: `BULK-${Math.floor(Math.random()*100000)}`,
+                        name: item.name,
+                        type: TargetType.SATELLITE,
+                        riskLevel: 'LOW',
+                        lastUpdate: '0.0s',
+                        group: 'BULK_IMPORT',
+                        orbit: orbit,
+                        tle1: item.l1,
+                        tle2: item.l2
+                    };
+                    onAddTarget(t);
+                }
+            });
+            alert(`Successfully imported ${bulkData.length} targets.`);
+        }
+    };
+    reader.readAsText(file);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
   const openEdit = (target: SpaceTarget) => {
     setEditingTarget({...target}); // Clone
     setShowEditModal(true);
@@ -75,8 +114,6 @@ const TargetManager: React.FC<TargetManagerProps> = ({ language, targets, onAddT
 
   const handleSaveEdit = () => {
     if (editingTarget) {
-       // In a real app, we would update the parent state specifically.
-       // Here we remove old and add new to simulate update
        onRemoveTarget(editingTarget.id);
        onAddTarget(editingTarget);
        setShowEditModal(false);
@@ -110,11 +147,20 @@ const TargetManager: React.FC<TargetManagerProps> = ({ language, targets, onAddT
                 ))}
              </div>
           </div>
+          
+          <button 
+            onClick={() => fileInputRef.current?.click()}
+            className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-cyan-900 rounded text-xs transition-all"
+          >
+            <Upload size={14} /> {t.upload}
+          </button>
+          <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept=".txt,.tle" />
+
           <button 
             onClick={() => setShowImportModal(true)}
             className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold rounded text-xs transition-all shadow-[0_0_15px_rgba(6,182,212,0.4)]"
           >
-            <Download size={14} /> {t.addNew}
+            <Plus size={14} /> {t.addNew}
           </button>
         </div>
       </div>
@@ -191,16 +237,11 @@ const TargetManager: React.FC<TargetManagerProps> = ({ language, targets, onAddT
                     value={tleInput}
                     onChange={e => setTleInput(e.target.value)}
                  />
-                 <div className="text-[10px] text-slate-500 italic">
-                    Example:<br/>
-                    1 25544U 98067A   24068.52638889  .00016717  00000+0  30112-3 0  9993<br/>
-                    2 25544  51.6410 146.5012 0005329  32.5024  76.8921 15.49904501442976
-                 </div>
               </div>
 
               <div className="flex gap-3 mt-6">
                  <button onClick={() => setShowImportModal(false)} className="flex-1 py-2 border border-slate-700 rounded text-slate-400 hover:bg-slate-800 text-xs font-bold uppercase">{t.cancel}</button>
-                 <button onClick={handleImport} className="flex-1 py-2 bg-cyan-700 hover:bg-cyan-600 text-white rounded text-xs font-bold uppercase shadow-[0_0_10px_cyan]">{t.confirm}</button>
+                 <button onClick={handleSingleImport} className="flex-1 py-2 bg-cyan-700 hover:bg-cyan-600 text-white rounded text-xs font-bold uppercase shadow-[0_0_10px_cyan]">{t.confirm}</button>
               </div>
            </div>
         </div>
@@ -229,10 +270,6 @@ const TargetManager: React.FC<TargetManagerProps> = ({ language, targets, onAddT
                        <option value="HIGH">HIGH</option>
                        <option value="CRITICAL">CRITICAL</option>
                     </select>
-                 </div>
-                 <div className="pt-2 border-t border-slate-800 mt-2">
-                    <label className="block text-slate-500 mb-1">ORBIT MEAN MOTION (REV/DAY)</label>
-                    <input type="number" step="0.01" value={editingTarget.orbit.meanMotion} onChange={e => setEditingTarget({...editingTarget, orbit: {...editingTarget.orbit, meanMotion: parseFloat(e.target.value)}})} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-white" />
                  </div>
               </div>
 

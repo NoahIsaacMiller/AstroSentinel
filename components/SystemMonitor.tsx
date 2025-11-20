@@ -1,8 +1,8 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Language, AccessLog } from '../types';
 import { TRANSLATIONS } from '../constants';
-import { Server, Activity, Wifi, Database, Zap, Share2, Globe, ShieldCheck } from 'lucide-react';
+import { Server, Activity, Database, Globe, ShieldCheck, HardDrive, Cpu } from 'lucide-react';
 
 interface SystemMonitorProps {
   language: Language;
@@ -16,15 +16,17 @@ const SystemMonitor: React.FC<SystemMonitorProps> = ({ language }) => {
   const [ramHistory, setRamHistory] = useState<number[]>(new Array(20).fill(40));
   const [netHistory, setNetHistory] = useState<number[]>(new Array(20).fill(10));
   const [logs, setLogs] = useState<AccessLog[]>([]);
+  
+  const sensorCanvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     const interval = setInterval(() => {
       const time = new Date().toLocaleTimeString();
       
       // Update Charts
-      setCpuHistory(prev => [...prev.slice(1), Math.random() * 40 + 20]); // 20-60%
-      setRamHistory(prev => [...prev.slice(1), Math.random() * 10 + 45]); // 45-55%
-      setNetHistory(prev => [...prev.slice(1), Math.random() * 500 + 100]); // 100-600 req/s
+      setCpuHistory(prev => [...prev.slice(1), Math.random() * 40 + 20]); 
+      setRamHistory(prev => [...prev.slice(1), Math.random() * 10 + 45]);
+      setNetHistory(prev => [...prev.slice(1), Math.random() * 500 + 100]);
 
       // Add Access Log
       if (Math.random() > 0.5) {
@@ -40,6 +42,34 @@ const SystemMonitor: React.FC<SystemMonitorProps> = ({ language }) => {
       }
     }, 1000);
     return () => clearInterval(interval);
+  }, []);
+
+  // Sensor Heatmap Animation
+  useEffect(() => {
+      const canvas = sensorCanvasRef.current;
+      if(!canvas) return;
+      const ctx = canvas.getContext('2d');
+      if(!ctx) return;
+      
+      const draw = () => {
+          ctx.clearRect(0,0,300,150);
+          // Grid
+          ctx.strokeStyle = '#1e293b';
+          ctx.lineWidth = 1;
+          for(let i=0; i<300; i+=20) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,150); ctx.stroke(); }
+          for(let i=0; i<150; i+=20) { ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(300,i); ctx.stroke(); }
+          
+          // Heatmap dots
+          for(let i=0; i<20; i++) {
+              const x = Math.random() * 300;
+              const y = Math.random() * 150;
+              const r = Math.random() * 5;
+              ctx.fillStyle = Math.random() > 0.8 ? 'rgba(6,182,212,0.8)' : 'rgba(34,197,94,0.4)';
+              ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+          }
+      };
+      const interval = setInterval(draw, 500);
+      return () => clearInterval(interval);
   }, []);
 
   // Helper for SVG Path
@@ -144,33 +174,32 @@ const SystemMonitor: React.FC<SystemMonitorProps> = ({ language }) => {
            </table>
         </div>
 
-        {/* 5. Active Nodes Status */}
+        {/* 5. Active Nodes / Sensor Map */}
         <div className="bg-slate-900/40 border border-slate-800 p-4 rounded-lg">
            <div className="flex items-center gap-2 mb-4 text-slate-400 border-b border-slate-800 pb-2 text-xs font-bold uppercase">
-              <Share2 size={14} /> {t.topology}
+              <Globe size={14} /> {t.sensors}
            </div>
-           <div className="space-y-3">
-              <div className="flex justify-between items-center p-2 bg-slate-950 rounded border border-slate-800/50">
-                 <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-                    <span className="text-xs">US-EAST-1</span>
-                 </div>
-                 <span className="text-[10px] text-slate-500">LOAD 34%</span>
-              </div>
-              <div className="flex justify-between items-center p-2 bg-slate-950 rounded border border-slate-800/50">
-                 <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-                    <span className="text-xs">EU-CENTRAL</span>
-                 </div>
-                 <span className="text-[10px] text-slate-500">LOAD 52%</span>
-              </div>
-              <div className="flex justify-between items-center p-2 bg-slate-950 rounded border border-slate-800/50">
-                 <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
-                    <span className="text-xs">AP-NORTHEAST</span>
-                 </div>
-                 <span className="text-[10px] text-slate-500">MAINTENANCE</span>
-              </div>
+           <canvas ref={sensorCanvasRef} width="300" height="150" className="w-full h-32 bg-slate-950 border border-slate-800 rounded opacity-70"></canvas>
+        </div>
+
+        {/* 6. Storage Clusters (Visual Only) */}
+        <div className="bg-slate-900/40 border border-slate-800 p-4 rounded-lg col-span-full md:col-span-3">
+            <div className="flex items-center gap-2 mb-4 text-slate-400 border-b border-slate-800 pb-2 text-xs font-bold uppercase">
+              <HardDrive size={14} /> {t.power}
+           </div>
+           <div className="flex gap-4 justify-around">
+               {[1,2,3,4].map(i => (
+                   <div key={i} className="flex-1 bg-slate-950 p-3 rounded border border-slate-800 flex items-center gap-4">
+                       <Cpu size={24} className="text-slate-600" />
+                       <div>
+                           <div className="text-[10px] text-slate-500 uppercase">Cluster-0{i}</div>
+                           <div className="h-1.5 w-24 bg-slate-800 rounded-full mt-1 overflow-hidden">
+                               <div className="h-full bg-cyan-600" style={{width: `${Math.random()*40+40}%`}}></div>
+                           </div>
+                           <div className="text-[9px] text-cyan-400 mt-1 text-right">HEALTHY</div>
+                       </div>
+                   </div>
+               ))}
            </div>
         </div>
 

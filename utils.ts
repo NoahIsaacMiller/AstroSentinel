@@ -25,6 +25,16 @@ export const PhysicsEngine = {
     return (n * SECONDS_PER_DAY) / (2 * Math.PI);
   },
 
+  // Get Derived Orbital Parameters (Apogee, Perigee in km)
+  getOrbitalDetails: (orbit: OrbitalElements) => {
+    const a = orbit.semiMajorAxis;
+    const e = orbit.eccentricity;
+    const perigee = a * (1 - e) - EARTH_RADIUS_KM;
+    const apogee = a * (1 + e) - EARTH_RADIUS_KM;
+    const periodMin = (2 * Math.PI * Math.sqrt(Math.pow(a, 3) / MU)) / 60;
+    return { perigee, apogee, periodMin };
+  },
+
   // Get ECI (Earth-Centered Inertial) Position and Velocity
   getStateVector: (target: SpaceTarget, timestamp: number): { r: {x:number, y:number, z:number}, v: {x:number, y:number, z:number} } => {
     const { orbit } = target;
@@ -92,19 +102,23 @@ export const PhysicsEngine = {
     };
   },
 
+  // Calculate Greenwich Mean Sidereal Time (GMST) in Radians
+  getGMST: (timestamp: number): number => {
+    const now = new Date(timestamp);
+    // J2000 epoch
+    const J2000 = 946728000000; // 2000-01-01 12:00:00 UTC
+    const d = (timestamp - J2000) / 86400000;
+    const gmst = (18.697374558 + 24.06570982441908 * d) % 24;
+    return (gmst / 24) * 2 * Math.PI;
+  },
+
   // Get Geodetic Coordinates (Lat, Lon, Alt) from ECI
   getGeoPosition: (target: SpaceTarget, timestamp: number): GeoPosition => {
     const state = PhysicsEngine.getStateVector(target, timestamp);
     const { x, y, z } = state.r;
     
-    // Calculate GMST (Greenwich Mean Sidereal Time) approx
-    // Need to rotate ECI to ECEF
-    const now = new Date(timestamp);
-    // J2000
-    const J2000 = new Date(Date.UTC(2000, 0, 1, 12, 0, 0));
-    const d = (timestamp - J2000.getTime()) / 86400000;
-    const gmst = (18.697374558 + 24.06570982441908 * d) % 24;
-    const gmstRad = (gmst / 24) * 2 * Math.PI;
+    // Calculate GMST
+    const gmstRad = PhysicsEngine.getGMST(timestamp);
 
     // Rotate x,y by GMST to get ECEF
     const x_ecef = x * Math.cos(gmstRad) + y * Math.sin(gmstRad);
@@ -137,6 +151,7 @@ export const PhysicsEngine = {
     const lam1 = lonRad;
     const lam2 = geo.lon * (Math.PI/180);
 
+    // Great circle distance formula
     const centralAngle = Math.acos( Math.sin(phi1)*Math.sin(phi2) + Math.cos(phi1)*Math.cos(phi2)*Math.cos(lam2-lam1) );
     
     // Elevation calculation using law of cosines on triangle (Earth Center - Station - Satellite)
@@ -188,5 +203,27 @@ export const PhysicsEngine = {
       console.error("TLE Parse Error", err);
       return null;
     }
+  },
+
+  // Parse Bulk TLE text
+  parseBulkTLE: (text: string): { name: string, l1: string, l2: string }[] => {
+    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+    const results = [];
+    
+    // Try to detect 3-line format vs 2-line format
+    // 3-line: Name, Line 1, Line 2
+    // 2-line: Line 1, Line 2 (Name usually missing or in previous block)
+    
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].startsWith('1 ') && lines[i+1]?.startsWith('2 ')) {
+        // Check if previous line was a name
+        const name = (i > 0 && !lines[i-1].startsWith('1 ') && !lines[i-1].startsWith('2 ')) 
+                     ? lines[i-1] 
+                     : `TLE_OBJ_${Math.floor(Math.random()*1000)}`;
+        results.push({ name, l1: lines[i], l2: lines[i+1] });
+        i++; // Skip next line
+      }
+    }
+    return results;
   }
 };

@@ -2,6 +2,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { SpaceTarget } from '../types';
 import { PhysicsEngine } from '../utils';
+import { GROUND_STATIONS } from '../constants';
 
 interface OrbitVisualizerProps {
   targets: SpaceTarget[];
@@ -22,8 +23,8 @@ const OrbitVisualizer: React.FC<OrbitVisualizerProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   
   // Initial View State
-  const [rotation, setRotation] = useState({ x: 0.8, y: 0.3 }); // Slightly better initial angle
-  const [zoom, setZoom] = useState(3.0); // Start closer
+  const [rotation, setRotation] = useState({ x: 0.8, y: 0.3 }); 
+  const [zoom, setZoom] = useState(3.0); 
   
   const isDragging = useRef(false);
   const lastMouse = useRef({ x: 0, y: 0 });
@@ -33,9 +34,10 @@ const OrbitVisualizer: React.FC<OrbitVisualizerProps> = ({
 
   // --- Star Generation ---
   const starField = useRef<{x: number, y: number, s: number, a: number}[]>([]);
+
   useEffect(() => {
     const stars = [];
-    for(let i=0; i<800; i++) { // More stars
+    for(let i=0; i<800; i++) { 
       stars.push({
         x: Math.random() * 4000 - 2000,
         y: Math.random() * 4000 - 2000,
@@ -51,13 +53,15 @@ const OrbitVisualizer: React.FC<OrbitVisualizerProps> = ({
     isDragging.current = true;
     lastMouse.current = { x: e.clientX, y: e.clientY };
   };
+  
+  // Inverted controls for natural feel (drag world)
   const handleMouseMove = (e: React.MouseEvent) => {
     if (isDragging.current) {
       const deltaX = e.clientX - lastMouse.current.x;
       const deltaY = e.clientY - lastMouse.current.y;
       setRotation(prev => ({
-        x: prev.x + deltaX * 0.005,
-        y: Math.min(Math.max(prev.y + deltaY * 0.005, -Math.PI/2), Math.PI/2)
+        x: prev.x - deltaX * 0.005, // Inverted
+        y: Math.min(Math.max(prev.y - deltaY * 0.005, -Math.PI/2), Math.PI/2) // Inverted
       }));
       lastMouse.current = { x: e.clientX, y: e.clientY };
     }
@@ -67,7 +71,7 @@ const OrbitVisualizer: React.FC<OrbitVisualizerProps> = ({
   // Enhanced Zoom: 0.5x to 50x
   const handleWheel = (e: React.WheelEvent) => {
     setZoom(prev => {
-       const delta = -e.deltaY * 0.002 * prev; // Logarithmic zoom feel
+       const delta = -e.deltaY * 0.002 * prev; 
        return Math.min(Math.max(prev + delta, 0.5), 50);
     });
   };
@@ -93,8 +97,6 @@ const OrbitVisualizer: React.FC<OrbitVisualizerProps> = ({
        const y2 = y * Math.cos(rotation.y) - z1 * Math.sin(rotation.y);
        const z2 = y * Math.sin(rotation.y) + z1 * Math.cos(rotation.y);
        
-       // Perspective Scale
-       // We add a larger offset to Z to avoid clipping when zooming in very close
        const cameraDist = FIELD_OF_VIEW + 200; 
        const scale = (cameraDist / (cameraDist + z2)) * zoom;
        
@@ -103,15 +105,14 @@ const OrbitVisualizer: React.FC<OrbitVisualizerProps> = ({
           y: cy - y2 * scale,
           z: z2,
           scale,
-          visible: z2 > -cameraDist // Simple near plane clip
+          visible: z2 > -cameraDist 
        };
     };
 
     // Clear Screen
-    // Deep space gradient background
     const bgGrad = ctx.createRadialGradient(cx, cy, width * 0.2, cx, cy, width);
-    bgGrad.addColorStop(0, '#0b1026');
-    bgGrad.addColorStop(1, '#020617');
+    bgGrad.addColorStop(0, '#0f172a'); // Slate 900
+    bgGrad.addColorStop(1, '#020617'); // Slate 950
     ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, width, height);
 
@@ -119,32 +120,24 @@ const OrbitVisualizer: React.FC<OrbitVisualizerProps> = ({
     starField.current.forEach(star => {
        const rotX = rotation.x * 100; 
        const rotY = rotation.y * 100;
-       // Infinite scroll effect
-       const sx = (star.x + rotX + 10000) % 4000 - 2000; // 4000 width loop
+       const sx = (star.x + rotX + 10000) % 4000 - 2000; 
        const sy = (star.y + rotY + 10000) % 4000 - 2000;
        
-       // Project star roughly to give it some depth feeling relative to earth
-       // We fake it by just drawing 2D but moving them based on rotation
-       const x = cx + sx * 0.5; // 0.5 parallax factor
+       const x = cx + sx * 0.5; 
        const y = cy + sy * 0.5;
 
        if (x > 0 && x < width && y > 0 && y < height) {
-         ctx.fillStyle = `rgba(255,255,255,${star.a * 0.8})`;
+         ctx.fillStyle = `rgba(255,255,255,${star.a * 0.6})`;
          ctx.fillRect(x, y, star.s, star.s);
        }
     });
 
     const renderQueue: { z: number, draw: () => void }[] = [];
-    // Pre-calculate center for use in all render blocks
     const center = project(0, 0, 0);
 
     // --- EARTH RENDERING ---
-    const earthRot = currentTime / 50000; // Earth rotation
-    // Sun Direction (Static in ECI for this demo, acting as light source from the left)
-    const sunVec = { x: -1, y: 0, z: 0.5 }; 
-    // Normalize
-    const len = Math.sqrt(sunVec.x*sunVec.x + sunVec.y*sunVec.y + sunVec.z*sunVec.z);
-    sunVec.x /= len; sunVec.y /= len; sunVec.z /= len;
+    // Accurate Physics Rotation
+    const earthRot = PhysicsEngine.getGMST(currentTime);
 
     renderQueue.push({
       z: 0,
@@ -153,93 +146,143 @@ const OrbitVisualizer: React.FC<OrbitVisualizerProps> = ({
 
          if (r < 0) return;
 
-         // 1. Atmosphere Glow (Outer)
-         const atmGrad = ctx.createRadialGradient(center.x, center.y, r, center.x, center.y, r * 1.3);
-         atmGrad.addColorStop(0, 'rgba(6, 182, 212, 0.4)'); // Cyan
-         atmGrad.addColorStop(0.5, 'rgba(59, 130, 246, 0.1)'); // Blue
+         // 1. Atmosphere Glow (Subtle)
+         const atmGrad = ctx.createRadialGradient(center.x, center.y, r, center.x, center.y, r * 1.2);
+         atmGrad.addColorStop(0, 'rgba(56, 189, 248, 0.1)'); // Sky blue low opacity
          atmGrad.addColorStop(1, 'rgba(0,0,0,0)');
          ctx.fillStyle = atmGrad;
-         ctx.beginPath(); ctx.arc(center.x, center.y, r * 1.3, 0, Math.PI*2); ctx.fill();
+         ctx.beginPath(); ctx.arc(center.x, center.y, r * 1.2, 0, Math.PI*2); ctx.fill();
 
-         // 2. Earth Base (Ocean)
-         const oceanGrad = ctx.createRadialGradient(center.x, center.y, r * 0.2, center.x, center.y, r);
-         oceanGrad.addColorStop(0, '#1e293b'); // Slate 800
-         oceanGrad.addColorStop(1, '#020617'); // Slate 950
-         ctx.fillStyle = oceanGrad;
+         // 2. Earth Base (Brighter Ocean Blue)
+         const sphereGrad = ctx.createRadialGradient(center.x - r*0.3, center.y - r*0.3, r * 0.1, center.x, center.y, r);
+         sphereGrad.addColorStop(0, '#2563eb'); // Blue 600 (Highlight)
+         sphereGrad.addColorStop(0.6, '#1e3a8a'); // Blue 900 (Mid ocean)
+         sphereGrad.addColorStop(1, '#020617'); // Deep shadow edge
+         ctx.fillStyle = sphereGrad;
          ctx.beginPath(); ctx.arc(center.x, center.y, r, 0, Math.PI*2); ctx.fill();
-
-         // 3. Holographic Grid
-         ctx.lineWidth = Math.max(0.5 * center.scale, 0.2);
+         
+         // 3. Holographic Grid (Subtle)
+         ctx.lineWidth = Math.max(0.5 * center.scale, 0.1);
+         
          // Latitudes
          for(let lat=-80; lat<=80; lat+=20) {
             ctx.beginPath();
-            ctx.strokeStyle = lat === 0 ? 'rgba(6, 182, 212, 0.5)' : 'rgba(6, 182, 212, 0.15)';
-            
+            ctx.strokeStyle = lat === 0 ? 'rgba(56, 189, 248, 0.3)' : 'rgba(56, 189, 248, 0.08)';
             const rad = EARTH_RADIUS_VIZ * Math.cos(lat*Math.PI/180);
             const y = EARTH_RADIUS_VIZ * Math.sin(lat*Math.PI/180);
             let first = true;
             for(let lon=0; lon<=360; lon+=5) {
-               const theta = lon*Math.PI/180 + earthRot;
+               const theta = (lon*Math.PI/180) + earthRot;
                const px = rad * Math.sin(theta);
                const pz = rad * Math.cos(theta);
                const p = project(px, y, pz);
-               if (p.visible) {
-                  // Only draw if facing camera (simple backface cull)
-                  if (p.z > -5) { // Slight bias to show equator rim
-                     if(first) { ctx.moveTo(p.x, p.y); first = false; }
-                     else ctx.lineTo(p.x, p.y);
-                  } else {
-                     first = true;
-                  }
-               }
+               if (p.visible && p.z > -10) {
+                  if(first) { ctx.moveTo(p.x, p.y); first = false; }
+                  else ctx.lineTo(p.x, p.y);
+               } else { first = true; }
             }
             ctx.stroke();
          }
-
          // Longitudes
          for(let lon=0; lon<360; lon+=30) {
             ctx.beginPath();
-            ctx.strokeStyle = 'rgba(6, 182, 212, 0.15)';
+            ctx.strokeStyle = 'rgba(56, 189, 248, 0.08)';
             let first = true;
             for(let lat=-90; lat<=90; lat+=5) {
                const phi = lat*Math.PI/180;
-               const theta = lon*Math.PI/180 + earthRot;
+               const theta = (lon*Math.PI/180) + earthRot;
                const px = EARTH_RADIUS_VIZ * Math.cos(phi) * Math.sin(theta);
                const py = EARTH_RADIUS_VIZ * Math.sin(phi);
                const pz = EARTH_RADIUS_VIZ * Math.cos(phi) * Math.cos(theta);
-               // FIX ERROR 1: y -> py
                const p = project(px, py, pz);
-               if (p.z > -5) {
+               if (p.visible && p.z > -10) {
                   if(first) { ctx.moveTo(p.x, p.y); first = false; }
                   else ctx.lineTo(p.x, p.y);
-               } else {
-                  first = true;
-               }
+               } else { first = true; }
             }
             ctx.stroke();
          }
 
          // 4. Night Side Shadow (Terminator)
-         const shadowGrad = ctx.createRadialGradient(center.x + r*0.6, center.y - r*0.2, r * 0.1, center.x, center.y, r);
+         const shadowGrad = ctx.createRadialGradient(center.x + r*0.7, center.y - r*0.3, r * 0.1, center.x, center.y, r);
          shadowGrad.addColorStop(0, 'rgba(0,0,0,0)');
-         shadowGrad.addColorStop(0.6, 'rgba(0,0,0,0.5)');
-         shadowGrad.addColorStop(1, 'rgba(0,0,0,0.9)');
+         shadowGrad.addColorStop(0.5, 'rgba(0,0,0,0.3)');
+         shadowGrad.addColorStop(1, 'rgba(0,0,0,0.85)');
          ctx.fillStyle = shadowGrad;
          ctx.beginPath(); ctx.arc(center.x, center.y, r, 0, Math.PI*2); ctx.fill();
       }
+    });
+
+    // --- GROUND STATIONS ---
+    GROUND_STATIONS.forEach(station => {
+       const latRad = station.lat * (Math.PI/180);
+       const theta = (station.lon * (Math.PI/180)) + earthRot;
+       
+       const px = EARTH_RADIUS_VIZ * Math.cos(latRad) * Math.sin(theta);
+       const py = EARTH_RADIUS_VIZ * Math.sin(latRad);
+       const pz = EARTH_RADIUS_VIZ * Math.cos(latRad) * Math.cos(theta);
+       
+       const p = project(px, py, pz);
+       
+       if (p.visible && p.z > -10) {
+           renderQueue.push({
+               z: p.z,
+               draw: () => {
+                   ctx.fillStyle = '#22c55e'; // Green
+                   ctx.beginPath();
+                   const s = 3 * p.scale;
+                   ctx.moveTo(p.x, p.y - s);
+                   ctx.lineTo(p.x - s, p.y + s);
+                   ctx.lineTo(p.x + s, p.y + s);
+                   ctx.fill();
+                   
+                   ctx.fillStyle = '#fff';
+                   ctx.font = `${8 * p.scale}px monospace`;
+                   ctx.fillText(station.id, p.x + s, p.y);
+               }
+           });
+       }
+
+       // --- LINKS TO SATELLITES ---
+       targets.forEach(target => {
+           const lookAngle = PhysicsEngine.getLookAngle(station, target, currentTime);
+           if (lookAngle > 5) { // Visible
+               const satPos = PhysicsEngine.getPosition(target, currentTime);
+               const satP = project(satPos.x, satPos.y, satPos.z);
+               
+               if (p.visible && satP.visible) {
+                   renderQueue.push({
+                       z: (p.z + satP.z) / 2,
+                       draw: () => {
+                           const grad = ctx.createLinearGradient(p.x, p.y, satP.x, satP.y);
+                           grad.addColorStop(0, 'rgba(34, 197, 94, 0.8)');
+                           grad.addColorStop(1, 'rgba(34, 197, 94, 0.1)');
+                           
+                           ctx.beginPath();
+                           ctx.moveTo(p.x, p.y);
+                           ctx.lineTo(satP.x, satP.y);
+                           ctx.strokeStyle = grad;
+                           ctx.lineWidth = 1;
+                           ctx.setLineDash([4, 4]);
+                           ctx.stroke();
+                           ctx.setLineDash([]);
+                       }
+                   });
+               }
+           }
+       });
     });
 
     // --- TARGETS & ORBITS ---
     targets.forEach(target => {
        // -- Orbit Path --
        if (showOrbits) {
-          const segments = 90; // Smoother orbits
+          const segments = 90; 
           const orbitPath: {x:number, y:number, z:number}[] = [];
           let avgZ = 0;
           
           for(let i=0; i<=segments; i++) {
              const M = (i/segments) * 360;
-             // Calculate physics position for orbital path
              const pathPos = PhysicsEngine.getPosition({...target, orbit: {...target.orbit, meanAnomaly: M, epoch: currentTime}}, currentTime); 
              const p = project(pathPos.x, pathPos.y, pathPos.z);
              orbitPath.push({x: p.x, y: p.y, z: p.z});
@@ -252,21 +295,10 @@ const OrbitVisualizer: React.FC<OrbitVisualizerProps> = ({
              draw: () => {
                 ctx.beginPath();
                 ctx.strokeStyle = target.id === selectedTargetId ? '#fff' : target.orbit.color;
-                // Thinner lines for cleaner look when zoomed out
                 ctx.lineWidth = target.id === selectedTargetId ? 1.5 : 0.5; 
                 
-                // Only draw if not culled (or handle partial culling?)
-                // Simple approach: just draw it.
-                // Enhancemnet: Fade out orbit line behind earth
                 let first = true;
                 orbitPath.forEach((pt) => {
-                   const dist = Math.hypot(pt.x - center.x, pt.y - center.y);
-                   if (pt.z < 0 && dist < EARTH_RADIUS_VIZ*center.scale) {
-                      // Behind earth - rudimentary check
-                      // ctx.globalAlpha = 0.1; 
-                      // Hard to switch alpha mid-path efficiently without multiple strokes. 
-                      // We'll stick to global alpha for the whole orbit for performance
-                   }
                    if(first) { ctx.moveTo(pt.x, pt.y); first = false; }
                    else ctx.lineTo(pt.x, pt.y);
                 });
@@ -286,8 +318,6 @@ const OrbitVisualizer: React.FC<OrbitVisualizerProps> = ({
        renderQueue.push({
           z: scr.z,
           draw: () => {
-             // Occlusion Check (Is behind Earth?)
-             // Check dist from center < earth radius AND z < earth z (0)
              const dx = scr.x - center.x;
              const dy = scr.y - center.y;
              const dist = Math.sqrt(dx*dx + dy*dy);
@@ -296,21 +326,22 @@ const OrbitVisualizer: React.FC<OrbitVisualizerProps> = ({
              const isBehindEarth = (scr.z < 0) && (dist < earthR * 0.95);
 
              if (isBehindEarth) {
-                // Show ghost if selected, else hide
                 if (target.id !== selectedTargetId) return;
                 ctx.globalAlpha = 0.2;
              } else {
                 ctx.globalAlpha = 1;
              }
 
-             // Size Clamping: Don't let them get huge when zoomed in
-             // Min 1.5px, Max 4px
-             const baseSize = (target.id === selectedTargetId ? 5 : 3) * scr.scale * 0.5;
-             const size = Math.min(Math.max(baseSize, 1.5), 4); 
-
+             // Marker Size Logic: Keep them small (1-2px) unless selected or zoomed very in
+             let size = 2; 
+             if (target.id === selectedTargetId) {
+                size = 4 * center.scale * 0.5;
+             } else {
+                size = Math.min(2, 3 * center.scale * 0.2); 
+             }
+             
              ctx.fillStyle = target.id === selectedTargetId ? '#fff' : target.orbit.color;
              
-             // Glow for selected
              if (target.id === selectedTargetId && !isBehindEarth) {
                ctx.shadowBlur = 10;
                ctx.shadowColor = '#fff';
@@ -321,9 +352,7 @@ const OrbitVisualizer: React.FC<OrbitVisualizerProps> = ({
              ctx.fill();
              ctx.shadowBlur = 0;
 
-             // Selection UI
              if (target.id === selectedTargetId) {
-                // Label with line
                 ctx.fillStyle = '#fff';
                 ctx.font = '11px monospace';
                 const labelX = scr.x + 15;
@@ -338,7 +367,6 @@ const OrbitVisualizer: React.FC<OrbitVisualizerProps> = ({
 
                 ctx.fillText(target.name, labelX, labelY);
                 
-                // Target box
                 ctx.strokeStyle = '#fff';
                 const boxS = size + 4;
                 ctx.strokeRect(scr.x - boxS/2, scr.y - boxS/2, boxS, boxS);
@@ -349,13 +377,11 @@ const OrbitVisualizer: React.FC<OrbitVisualizerProps> = ({
        });
     });
 
-    // Sort by Z-depth (Paint Algorithm)
     renderQueue.sort((a, b) => a.z - b.z); 
     renderQueue.forEach(item => item.draw());
 
   }, [targets, showOrbits, selectedTargetId, rotation, zoom, currentTime]);
 
-  // Handle Resize
   useEffect(() => {
     const resize = () => {
       if(containerRef.current && canvasRef.current) {
@@ -379,7 +405,6 @@ const OrbitVisualizer: React.FC<OrbitVisualizerProps> = ({
       onWheel={handleWheel}
       onClick={() => onSelectTarget('')}
     >
-      {/* Zoom Indicator */}
       <div className="absolute bottom-4 left-4 pointer-events-none text-[10px] text-slate-600 font-mono">
          ZOOM: {zoom.toFixed(2)}x
       </div>

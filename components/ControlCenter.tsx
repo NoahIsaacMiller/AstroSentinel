@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Language, TimeMode } from '../types';
 import { TRANSLATIONS } from '../constants';
-import { Shield, Radio, Power, Clock, FastForward, Terminal } from 'lucide-react';
+import { Shield, Radio, Power, Clock, FastForward, Terminal, Satellite, Wifi } from 'lucide-react';
 
 interface ControlCenterProps {
   language: Language;
@@ -96,12 +96,32 @@ const ControlCenter: React.FC<ControlCenterProps> = ({
            </div>
         </div>
 
-        {/* 3. Command Log Terminal */}
-        <div className="col-span-1 md:col-span-2 bg-black border border-slate-800 p-4 rounded-xl font-mono text-xs h-40 overflow-hidden relative">
+        {/* 3. Constellation Control (Simulated) */}
+        <div className="bg-slate-900/50 border border-green-900/30 p-6 rounded-xl shadow-[0_0_20px_rgba(34,197,94,0.05)]">
+           <div className="flex items-center gap-2 mb-6 text-green-400">
+              <Satellite size={20} />
+              <h3 className="font-bold text-sm uppercase tracking-widest">{t.constellation}</h3>
+           </div>
+           <div className="grid grid-cols-2 gap-4">
+               <button 
+                  onClick={() => addLog("MANEUVER: Station Keeping delta-V applied to LEO cluster.")}
+                  className="p-4 bg-slate-950 border border-slate-800 rounded hover:border-green-500 hover:text-green-400 transition-colors text-xs font-bold uppercase flex flex-col items-center gap-2 text-center">
+                   <Wifi size={24} /> {t.maneuver}
+               </button>
+               <button 
+                   onClick={() => addLog("BROADCAST: Emergency signal transmitted to all active nodes.")}
+                   className="p-4 bg-slate-950 border border-slate-800 rounded hover:border-red-500 hover:text-red-400 transition-colors text-xs font-bold uppercase flex flex-col items-center gap-2 text-center">
+                   <Radio size={24} /> {t.broadcast}
+               </button>
+           </div>
+        </div>
+
+        {/* 4. Command Log Terminal */}
+        <div className="bg-black border border-slate-800 p-4 rounded-xl font-mono text-xs h-52 overflow-hidden relative">
            <div className="absolute top-2 right-2 text-slate-600 flex items-center gap-2">
               <Terminal size={14} /> {t.logConsole}
            </div>
-           <div className="space-y-1 text-slate-400 mt-4">
+           <div className="space-y-1 text-slate-400 mt-4 h-full overflow-y-auto pb-4">
               {logs.map((log, i) => (
                  <div key={i} className="border-l-2 border-slate-700 pl-2">{log}</div>
               ))}
