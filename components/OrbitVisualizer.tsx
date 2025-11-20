@@ -332,12 +332,12 @@ const OrbitVisualizer: React.FC<OrbitVisualizerProps> = ({
                 ctx.globalAlpha = 1;
              }
 
-             // Marker Size Logic: Keep them small (1-2px) unless selected or zoomed very in
-             let size = 2; 
+             // Marker Size Logic: Strict dots for unselected
+             let size = 1.5; 
              if (target.id === selectedTargetId) {
-                size = 4 * center.scale * 0.5;
+                size = 4 * center.scale * 0.5; // Scale up selected
              } else {
-                size = Math.min(2, 3 * center.scale * 0.2); 
+                size = 1.5; // Fixed small dot size for all others, regardless of zoom
              }
              
              ctx.fillStyle = target.id === selectedTargetId ? '#fff' : target.orbit.color;

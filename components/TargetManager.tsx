@@ -1,9 +1,9 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Language, SpaceTarget, TargetType } from '../types';
 import { TRANSLATIONS, TYPE_LABELS } from '../constants';
 import { PhysicsEngine } from '../utils';
-import { Edit, Trash, Filter, Plus, X, Save, Download, Upload, FileText } from 'lucide-react';
+import { Edit, Trash, Filter, Plus, Upload, FolderPlus, Folder } from 'lucide-react';
 
 interface TargetManagerProps {
   language: Language;
@@ -20,16 +20,40 @@ const TargetManager: React.FC<TargetManagerProps> = ({ language, targets, onAddT
   const [filter, setFilter] = useState<TargetType | 'ALL'>('ALL');
   const [showImportModal, setShowImportModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showGroupModal, setShowGroupModal] = useState(false);
+
+  // Groups State
+  const [availableGroups, setAvailableGroups] = useState<string[]>(['LEO_STATIONS', 'CONSTELLATION', 'DEBRIS_FIELD', 'NEO']);
+  const [newGroupName, setNewGroupName] = useState('');
   
   // Import State
   const [tleInput, setTleInput] = useState('');
   const [importName, setImportName] = useState('');
   const [importType, setImportType] = useState<TargetType>(TargetType.SATELLITE);
+  const [importGroup, setImportGroup] = useState('');
 
   // Edit State
   const [editingTarget, setEditingTarget] = useState<SpaceTarget | null>(null);
 
+  // Sync groups from targets on mount
+  useEffect(() => {
+      const groups = new Set(availableGroups);
+      targets.forEach(t => { if(t.group) groups.add(t.group); });
+      setAvailableGroups(Array.from(groups));
+  }, [targets]);
+
   const filteredTargets = filter === 'ALL' ? targets : targets.filter(t => t.type === filter);
+
+  const handleAddGroup = () => {
+      if (newGroupName && !availableGroups.includes(newGroupName)) {
+          setAvailableGroups([...availableGroups, newGroupName]);
+          setNewGroupName('');
+      }
+  };
+
+  const removeGroup = (g: string) => {
+      setAvailableGroups(prev => prev.filter(x => x !== g));
+  };
 
   const handleSingleImport = () => {
     const lines = tleInput.trim().split('\n');
@@ -55,7 +79,7 @@ const TargetManager: React.FC<TargetManagerProps> = ({ language, targets, onAddT
       type: importType,
       riskLevel: 'LOW',
       lastUpdate: '0.0s',
-      group: 'IMPORTED',
+      group: importGroup || 'IMPORTED',
       orbit: orbit,
       tle1: l1,
       tle2: l2
@@ -85,7 +109,7 @@ const TargetManager: React.FC<TargetManagerProps> = ({ language, targets, onAddT
             bulkData.forEach(item => {
                 const orbit = PhysicsEngine.parseTLE(item.l1, item.l2);
                 if (orbit) {
-                    orbit.color = '#34d399'; // Default bulk color
+                    orbit.color = '#34d399';
                     const t: SpaceTarget = {
                         id: `BULK-${Math.floor(Math.random()*100000)}`,
                         name: item.name,
@@ -124,17 +148,25 @@ const TargetManager: React.FC<TargetManagerProps> = ({ language, targets, onAddT
   return (
     <div className="p-8 h-full overflow-y-auto bg-slate-950 relative">
       {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-end mb-8 border-b border-cyan-900/50 pb-4 gap-4">
+      <div className="flex flex-col xl:flex-row justify-between items-end mb-8 border-b border-cyan-900/50 pb-4 gap-4">
         <div>
            <h2 className="text-2xl text-cyan-400 font-bold tracking-wider uppercase">
              {t.title}
            </h2>
            <p className="text-slate-500 text-xs font-mono mt-1">
-             {filteredTargets.length} / {targets.length} OBJECTS
+             {filteredTargets.length} / {targets.length} OBJECTS IN DATABASE
            </p>
         </div>
-        <div className="flex gap-2">
-          <div className="relative group">
+        <div className="flex flex-wrap gap-2">
+          {/* Group Manager Button */}
+          <button 
+            onClick={() => setShowGroupModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-slate-900 border border-purple-900/50 text-purple-300 hover:bg-purple-900/20 rounded text-xs transition-all"
+          >
+            <Folder size={14} /> {t.manage}
+          </button>
+
+          <div className="relative group z-10">
              <button className="flex items-center gap-2 px-4 py-2 bg-slate-900 border border-slate-700 rounded text-xs text-slate-300 hover:border-cyan-500 hover:text-cyan-400 transition-colors">
                <Filter size={14} /> {filter === 'ALL' ? t.all : typeLabels[filter]}
              </button>
@@ -166,7 +198,7 @@ const TargetManager: React.FC<TargetManagerProps> = ({ language, targets, onAddT
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-lg border border-cyan-900/30 bg-slate-900/20">
+      <div className="overflow-x-auto rounded-lg border border-cyan-900/30 bg-slate-900/20 min-h-[400px]">
         <table className="w-full text-left text-sm text-slate-400 font-mono">
           <thead className="bg-slate-900 text-xs uppercase text-cyan-500 tracking-wider">
             <tr>
@@ -208,6 +240,37 @@ const TargetManager: React.FC<TargetManagerProps> = ({ language, targets, onAddT
         </table>
       </div>
 
+      {/* GROUP MANAGEMENT MODAL */}
+      {showGroupModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center">
+           <div className="bg-slate-900 border border-purple-500/50 rounded-lg p-6 w-[400px] shadow-[0_0_50px_rgba(147,51,234,0.2)]">
+              <h3 className="text-purple-400 font-bold uppercase tracking-widest mb-6 text-center border-b border-purple-900/30 pb-2">{t.groupTitle}</h3>
+              
+              <div className="flex gap-2 mb-4">
+                  <input 
+                     type="text" 
+                     placeholder={t.newGroupPlaceholder}
+                     className="flex-1 bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white uppercase"
+                     value={newGroupName}
+                     onChange={e => setNewGroupName(e.target.value.toUpperCase())}
+                  />
+                  <button onClick={handleAddGroup} className="p-2 bg-purple-700 text-white rounded hover:bg-purple-600"><FolderPlus size={16}/></button>
+              </div>
+
+              <div className="max-h-60 overflow-y-auto space-y-2 mb-6">
+                  {availableGroups.map(g => (
+                      <div key={g} className="flex justify-between items-center p-2 bg-slate-950 border border-slate-800 rounded">
+                          <span className="text-xs text-slate-300 font-mono">{g}</span>
+                          <button onClick={() => removeGroup(g)} className="text-slate-600 hover:text-red-400"><Trash size={12}/></button>
+                      </div>
+                  ))}
+              </div>
+
+              <button onClick={() => setShowGroupModal(false)} className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-xs font-bold uppercase">{t.close}</button>
+           </div>
+        </div>
+      )}
+
       {/* IMPORT MODAL */}
       {showImportModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center">
@@ -222,15 +285,26 @@ const TargetManager: React.FC<TargetManagerProps> = ({ language, targets, onAddT
                     value={importName}
                     onChange={e => setImportName(e.target.value)}
                  />
-                 <select 
-                    className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-slate-200 text-sm focus:border-cyan-500 outline-none font-mono"
-                    value={importType}
-                    onChange={e => setImportType(e.target.value as TargetType)}
-                 >
-                    {Object.values(TargetType).map(type => (
-                       <option key={type} value={type}>{typeLabels[type]}</option>
-                    ))}
-                 </select>
+                 <div className="flex gap-2">
+                     <select 
+                        className="flex-1 bg-slate-950 border border-slate-700 rounded p-2 text-slate-200 text-sm focus:border-cyan-500 outline-none font-mono"
+                        value={importType}
+                        onChange={e => setImportType(e.target.value as TargetType)}
+                     >
+                        {Object.values(TargetType).map(type => (
+                           <option key={type} value={type}>{typeLabels[type]}</option>
+                        ))}
+                     </select>
+                     <select 
+                        className="flex-1 bg-slate-950 border border-slate-700 rounded p-2 text-slate-200 text-sm focus:border-cyan-500 outline-none font-mono"
+                        value={importGroup}
+                        onChange={e => setImportGroup(e.target.value)}
+                     >
+                        <option value="">{t.selectGroup}</option>
+                        {availableGroups.map(g => <option key={g} value={g}>{g}</option>)}
+                     </select>
+                 </div>
+                 
                  <textarea
                     className="w-full h-32 bg-slate-950 border border-slate-700 rounded p-2 text-slate-200 text-xs font-mono focus:border-cyan-500 outline-none"
                     placeholder={t.tlePlaceholder}
@@ -260,7 +334,10 @@ const TargetManager: React.FC<TargetManagerProps> = ({ language, targets, onAddT
                  </div>
                  <div>
                     <label className="block text-slate-500 mb-1">GROUP</label>
-                    <input type="text" value={editingTarget.group || ''} onChange={e => setEditingTarget({...editingTarget, group: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-white" />
+                    <select value={editingTarget.group || ''} onChange={e => setEditingTarget({...editingTarget, group: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-white">
+                        <option value="">{t.noGroup}</option>
+                        {availableGroups.map(g => <option key={g} value={g}>{g}</option>)}
+                    </select>
                  </div>
                  <div>
                     <label className="block text-slate-500 mb-1">RISK LEVEL</label>
@@ -270,6 +347,25 @@ const TargetManager: React.FC<TargetManagerProps> = ({ language, targets, onAddT
                        <option value="HIGH">HIGH</option>
                        <option value="CRITICAL">CRITICAL</option>
                     </select>
+                 </div>
+                 
+                 <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-800 mt-2">
+                     <div>
+                        <label className="block text-slate-500 mb-1">INCLINATION</label>
+                        <input type="number" step="0.01" value={editingTarget.orbit.inclination} onChange={e => setEditingTarget({...editingTarget, orbit: {...editingTarget.orbit, inclination: parseFloat(e.target.value)}})} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-white" />
+                     </div>
+                     <div>
+                        <label className="block text-slate-500 mb-1">ECCENTRICITY</label>
+                        <input type="number" step="0.0001" value={editingTarget.orbit.eccentricity} onChange={e => setEditingTarget({...editingTarget, orbit: {...editingTarget.orbit, eccentricity: parseFloat(e.target.value)}})} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-white" />
+                     </div>
+                     <div>
+                        <label className="block text-slate-500 mb-1">RAAN</label>
+                        <input type="number" step="0.1" value={editingTarget.orbit.raan} onChange={e => setEditingTarget({...editingTarget, orbit: {...editingTarget.orbit, raan: parseFloat(e.target.value)}})} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-white" />
+                     </div>
+                     <div>
+                        <label className="block text-slate-500 mb-1">ARG PERIGEE</label>
+                        <input type="number" step="0.1" value={editingTarget.orbit.argPe} onChange={e => setEditingTarget({...editingTarget, orbit: {...editingTarget.orbit, argPe: parseFloat(e.target.value)}})} className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-white" />
+                     </div>
                  </div>
               </div>
 

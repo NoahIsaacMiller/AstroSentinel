@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { SpaceTarget, Language, GeoPosition } from '../types';
 import { TRANSLATIONS, TYPE_LABELS, GROUND_STATIONS } from '../constants';
 import { PhysicsEngine } from '../utils';
-import { Disc, AlertTriangle, Radio, Satellite, Hexagon, Search, LocateFixed, Signal, ArrowUpRight, ArrowDownRight, Activity } from 'lucide-react';
+import { Search, LocateFixed, Signal, ArrowUpRight, ArrowDownRight, Activity, Circle, Crosshair } from 'lucide-react';
 
 interface SidebarProps {
   targets: SpaceTarget[];
@@ -13,8 +13,8 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ targets, selectedId, onSelect, language }) => {
-  const t = TRANSLATIONS[language];
-  const d = t.dashboard;
+  const t = TRANSLATIONS[language].nav;
+  const d = TRANSLATIONS[language].dashboard;
   const typeLabels = TYPE_LABELS[language];
 
   const [search, setSearch] = useState('');
@@ -26,16 +26,6 @@ const Sidebar: React.FC<SidebarProps> = ({ targets, selectedId, onSelect, langua
     t.name.toLowerCase().includes(search.toLowerCase()) || 
     t.id.toLowerCase().includes(search.toLowerCase())
   );
-
-  const getIcon = (type: string) => {
-    switch(type) {
-      case 'SATELLITE': return <Satellite size={14} />;
-      case 'DEBRIS': return <AlertTriangle size={14} />;
-      case 'STATION': return <Radio size={14} />;
-      case 'ASTEROID': return <Hexagon size={14} />;
-      default: return <Disc size={14} />;
-    }
-  };
 
   // Live Telemetry Loop
   useEffect(() => {
@@ -73,7 +63,7 @@ const Sidebar: React.FC<SidebarProps> = ({ targets, selectedId, onSelect, langua
        }
        setVisibleStation(stationName);
 
-    }, 250); // 4Hz update for smoother numbers
+    }, 250); 
 
     return () => clearInterval(interval);
   }, [selectedId, targets]);
@@ -114,9 +104,12 @@ const Sidebar: React.FC<SidebarProps> = ({ targets, selectedId, onSelect, langua
                <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-cyan-400 shadow-[0_0_10px_cyan]"></div>
             )}
             <div className="flex items-center gap-3 pl-2">
-              <span className={`${selectedId === target.id ? 'text-cyan-400' : 'text-slate-600 group-hover:text-cyan-500'}`}>
-                {getIcon(target.type)}
-              </span>
+              {/* Standardized Icon: Circle for all bodies */}
+              <div className="relative">
+                 <Circle size={10} fill={target.orbit.color} color={target.orbit.color} className="opacity-80" />
+                 {selectedId === target.id && <Crosshair size={20} className="absolute -top-[5px] -left-[5px] text-cyan-400 animate-spin-slow opacity-50" />}
+              </div>
+              
               <div className="flex flex-col items-start text-left">
                 <span className="text-xs font-bold uppercase tracking-wider truncate w-32">{target.name}</span>
                 <span className="text-[9px] opacity-60">{typeLabels[target.type]}</span>
@@ -199,7 +192,7 @@ const Sidebar: React.FC<SidebarProps> = ({ targets, selectedId, onSelect, langua
       </div>
       
       <div className="p-2 bg-black text-[8px] text-slate-700 text-center uppercase tracking-widest">
-        {t.footer}
+        {TRANSLATIONS[language].footer}
       </div>
     </div>
   );

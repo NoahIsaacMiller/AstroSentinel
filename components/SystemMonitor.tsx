@@ -192,11 +192,11 @@ const SystemMonitor: React.FC<SystemMonitorProps> = ({ language }) => {
                    <div key={i} className="flex-1 bg-slate-950 p-3 rounded border border-slate-800 flex items-center gap-4">
                        <Cpu size={24} className="text-slate-600" />
                        <div>
-                           <div className="text-[10px] text-slate-500 uppercase">Cluster-0{i}</div>
+                           <div className="text-[10px] text-slate-500 uppercase">{t.cluster}-0{i}</div>
                            <div className="h-1.5 w-24 bg-slate-800 rounded-full mt-1 overflow-hidden">
                                <div className="h-full bg-cyan-600" style={{width: `${Math.random()*40+40}%`}}></div>
                            </div>
-                           <div className="text-[9px] text-cyan-400 mt-1 text-right">HEALTHY</div>
+                           <div className="text-[9px] text-cyan-400 mt-1 text-right">{t.healthy}</div>
                        </div>
                    </div>
                ))}

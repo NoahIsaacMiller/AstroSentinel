@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Language } from '../types';
 import { TRANSLATIONS } from '../constants';
-import { AlertTriangle, AlertOctagon, Info, CheckCircle, Filter, CheckSquare } from 'lucide-react';
+import { AlertTriangle, AlertOctagon, Info, CheckCircle, ShieldAlert, Activity, CheckSquare } from 'lucide-react';
 
 interface AlertsViewProps {
   language: Language;
@@ -13,10 +13,11 @@ const AlertsView: React.FC<AlertsViewProps> = ({ language }) => {
 
   // Mock alerts state
   const [alerts, setAlerts] = useState([
-    { id: 1, level: 'CRITICAL', msg: "COLLISION VECTOR: T-004 / T-001", time: "10:04:22 UTC", active: true, category: 'COLLISION' },
-    { id: 2, level: 'WARNING', msg: "SOLAR FLARE (X-CLASS) DETECTED", time: "09:55:00 UTC", active: true, category: 'WEATHER' },
-    { id: 3, level: 'INFO', msg: "DATABASE SYNC COMPLETE", time: "08:00:00 UTC", active: false, category: 'SYSTEM' },
-    { id: 4, level: 'CRITICAL', msg: "LOSS OF SIGNAL: DSN-2", time: "07:42:11 UTC", active: true, category: 'SYSTEM' },
+    { id: 1, level: 'CRITICAL', msg: "COLLISION VECTOR DETECTED: ISS / DEB-992", time: "10:04:22 UTC", active: true, category: 'ORBITAL', source: 'RADAR-1' },
+    { id: 2, level: 'WARNING', msg: "SOLAR FLARE (X-CLASS) INBOUND", time: "09:55:00 UTC", active: true, category: 'WEATHER', source: 'NOAA-SWPC' },
+    { id: 3, level: 'INFO', msg: "GROUND STATION HANDOVER: DSN-3", time: "08:00:00 UTC", active: false, category: 'SYSTEM', source: 'AUTO' },
+    { id: 4, level: 'CRITICAL', msg: "LOSS OF TELEMETRY: STARLINK-1001", time: "07:42:11 UTC", active: true, category: 'COMMS', source: 'SYS_MON' },
+    { id: 5, level: 'INFO', msg: "ORBITAL MANEUVER COMPLETE: CSS", time: "06:30:00 UTC", active: false, category: 'ORBITAL', source: 'TELEMETRY' },
   ]);
 
   const [filter, setFilter] = useState<'ALL'|'CRITICAL'|'SYSTEM'>('ALL');
@@ -24,7 +25,7 @@ const AlertsView: React.FC<AlertsViewProps> = ({ language }) => {
   const filteredAlerts = alerts.filter(a => {
       if (filter === 'ALL') return true;
       if (filter === 'CRITICAL') return a.level === 'CRITICAL';
-      if (filter === 'SYSTEM') return a.category === 'SYSTEM';
+      if (filter === 'SYSTEM') return a.category === 'SYSTEM' || a.category === 'COMMS';
       return true;
   });
 
@@ -32,61 +33,112 @@ const AlertsView: React.FC<AlertsViewProps> = ({ language }) => {
       setAlerts(prev => prev.map(a => a.id === id ? {...a, active: false} : a));
   };
 
+  const criticalCount = alerts.filter(a => a.level === 'CRITICAL' && a.active).length;
+
   return (
-    <div className="p-8 h-full overflow-y-auto bg-slate-950 relative">
-      <h2 className="text-2xl text-red-500 font-bold tracking-wider uppercase mb-8 border-b border-red-900/30 pb-4 flex items-center gap-2 justify-between">
-        <span className="flex items-center gap-2"><AlertTriangle /> {t.title}</span>
-        <div className="flex gap-2">
-            <button onClick={()=>setFilter('ALL')} className={`text-xs px-3 py-1 rounded border ${filter==='ALL'?'bg-red-900/40 border-red-500 text-white':'border-slate-800 text-slate-500'}`}>{t.filterAll}</button>
-            <button onClick={()=>setFilter('CRITICAL')} className={`text-xs px-3 py-1 rounded border ${filter==='CRITICAL'?'bg-red-900/40 border-red-500 text-white':'border-slate-800 text-slate-500'}`}>{t.filterCrit}</button>
-            <button onClick={()=>setFilter('SYSTEM')} className={`text-xs px-3 py-1 rounded border ${filter==='SYSTEM'?'bg-red-900/40 border-red-500 text-white':'border-slate-800 text-slate-500'}`}>{t.filterSys}</button>
-        </div>
-      </h2>
-
-      <div className="max-w-4xl mx-auto space-y-4">
-        {filteredAlerts.map(alert => (
-          <div 
-            key={alert.id} 
-            className={`flex items-start gap-4 p-4 rounded border-l-4 backdrop-blur-sm transition-all duration-300 group
-            ${!alert.active ? 'opacity-50 grayscale' : ''}
-            ${alert.level === 'CRITICAL' 
-              ? 'bg-red-950/20 border-l-red-500 border-y border-r border-red-900/20 text-red-100' 
-              : alert.level === 'WARNING' 
-              ? 'bg-orange-950/20 border-l-orange-500 border-y border-r border-orange-900/20 text-orange-100' 
-              : 'bg-slate-900/50 border-l-cyan-500 border-y border-r border-slate-800 text-slate-300'}`}
-          >
-             <div className="mt-1">
-               {alert.level === 'CRITICAL' ? <AlertOctagon size={24} className={`${alert.active ? 'animate-pulse' : ''} text-red-500`} /> :
-                alert.level === 'WARNING' ? <AlertTriangle size={24} className="text-orange-500" /> :
-                <Info size={24} className="text-cyan-500" />}
+    <div className="p-6 h-full overflow-y-auto bg-slate-950 relative font-mono">
+      {/* Top Dashboard Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+         <div className={`p-4 rounded border ${criticalCount > 0 ? 'bg-red-950/30 border-red-500/50' : 'bg-green-950/30 border-green-500/50'}`}>
+             <div className="text-xs text-slate-400 uppercase tracking-widest mb-1">{t.threatLevel}</div>
+             <div className={`text-2xl font-bold ${criticalCount > 0 ? 'text-red-500 animate-pulse' : 'text-green-500'}`}>
+                 {criticalCount > 0 ? 'DEFCON 3' : 'DEFCON 5'}
              </div>
-             <div className="flex-1">
-                <div className="flex justify-between items-center mb-1">
-                   <div className="flex gap-2">
-                       <span className={`font-bold text-[10px] px-2 py-0.5 rounded uppercase tracking-wider
-                          ${alert.level === 'CRITICAL' ? 'bg-red-600/50 text-white' : alert.level === 'WARNING' ? 'bg-orange-600/50 text-white' : 'bg-cyan-900/50 text-cyan-200'}`}>
-                          {alert.level === 'CRITICAL' ? t.critical : alert.level === 'WARNING' ? t.warning : t.info}
-                       </span>
-                       <span className="text-[10px] px-2 py-0.5 border border-slate-700 rounded text-slate-500 font-mono">{alert.category}</span>
-                   </div>
-                   <span className="font-mono text-xs opacity-70">{alert.time}</span>
-                </div>
-                <p className="font-mono text-sm font-bold">{alert.msg}</p>
+         </div>
+         <div className="p-4 rounded border border-cyan-900/30 bg-slate-900/30">
+             <div className="text-xs text-slate-400 uppercase tracking-widest mb-1">{t.activeAlerts}</div>
+             <div className="text-2xl font-bold text-cyan-400">
+                 {alerts.filter(a => a.active).length}
              </div>
-             {alert.active && (
-                 <button onClick={() => acknowledge(alert.id)} className="opacity-0 group-hover:opacity-100 transition-opacity p-2 bg-slate-950 border border-slate-700 rounded hover:bg-slate-800 text-slate-400" title={t.ack}>
-                     <CheckSquare size={16} />
-                 </button>
-             )}
-          </div>
-        ))}
+         </div>
+         <div className="p-4 rounded border border-slate-800 bg-slate-900/30">
+             <div className="text-xs text-slate-400 uppercase tracking-widest mb-1">{t.systemStatus}</div>
+             <div className="text-xl font-bold text-slate-200 flex items-center gap-2">
+                 <Activity size={20} className="text-green-500" /> {t.nominal}
+             </div>
+         </div>
+         <div className="p-4 rounded border border-slate-800 bg-slate-900/30">
+             <div className="text-xs text-slate-400 uppercase tracking-widest mb-1">{t.lastScan}</div>
+             <div className="text-xl font-bold text-slate-200">
+                 T-00:00:05
+             </div>
+         </div>
+      </div>
 
-        {filteredAlerts.length === 0 && (
-          <div className="text-center py-20 text-slate-600 flex flex-col items-center gap-4 opacity-50">
-            <CheckCircle size={64} className="text-green-900" />
-            <p className="uppercase tracking-widest">{t.noAlerts}</p>
+      {/* Main Table Section */}
+      <div className="border border-slate-800 rounded-lg overflow-hidden bg-slate-900/20">
+          <div className="flex items-center justify-between p-4 border-b border-slate-800 bg-slate-900/50">
+             <h2 className="text-lg text-slate-200 font-bold tracking-wider uppercase flex items-center gap-2">
+                <ShieldAlert size={18} className="text-cyan-500" /> {t.title}
+             </h2>
+             <div className="flex gap-1 bg-slate-950 p-1 rounded border border-slate-800">
+                <button onClick={()=>setFilter('ALL')} className={`text-[10px] px-3 py-1 rounded uppercase font-bold ${filter==='ALL'?'bg-cyan-700 text-white':'text-slate-500 hover:text-slate-300'}`}>{t.filterAll}</button>
+                <button onClick={()=>setFilter('CRITICAL')} className={`text-[10px] px-3 py-1 rounded uppercase font-bold ${filter==='CRITICAL'?'bg-red-700 text-white':'text-slate-500 hover:text-slate-300'}`}>{t.filterCrit}</button>
+                <button onClick={()=>setFilter('SYSTEM')} className={`text-[10px] px-3 py-1 rounded uppercase font-bold ${filter==='SYSTEM'?'bg-slate-700 text-white':'text-slate-500 hover:text-slate-300'}`}>{t.filterSys}</button>
+             </div>
           </div>
-        )}
+
+          <div className="w-full overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-950 text-slate-500 uppercase font-bold tracking-wider">
+                      <tr>
+                          <th className="p-3 w-10"></th>
+                          <th className="p-3">{t.colLevel}</th>
+                          <th className="p-3">{t.colTime}</th>
+                          <th className="p-3">{t.colCat}</th>
+                          <th className="p-3">{t.colSrc}</th>
+                          <th className="p-3 w-1/3">{t.colMsg}</th>
+                          <th className="p-3 text-right">{t.colAct}</th>
+                      </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/50">
+                      {filteredAlerts.map(alert => (
+                          <tr key={alert.id} className={`hover:bg-white/5 transition-colors ${!alert.active ? 'opacity-40' : ''}`}>
+                              <td className="p-3">
+                                  {alert.level === 'CRITICAL' ? <AlertOctagon size={16} className="text-red-500 animate-pulse" /> :
+                                   alert.level === 'WARNING' ? <AlertTriangle size={16} className="text-orange-500" /> :
+                                   <Info size={16} className="text-cyan-500" />}
+                              </td>
+                              <td className="p-3">
+                                  <span className={`px-2 py-0.5 rounded text-[9px] font-bold border
+                                      ${alert.level === 'CRITICAL' ? 'border-red-900 bg-red-950/50 text-red-400' : 
+                                        alert.level === 'WARNING' ? 'border-orange-900 bg-orange-950/50 text-orange-400' : 
+                                        'border-cyan-900 bg-cyan-950/50 text-cyan-400'}`}>
+                                      {alert.level}
+                                  </span>
+                              </td>
+                              <td className="p-3 text-slate-400 font-mono">{alert.time}</td>
+                              <td className="p-3 text-slate-300">{alert.category}</td>
+                              <td className="p-3 text-slate-500">{alert.source}</td>
+                              <td className={`p-3 font-bold ${alert.active ? 'text-white' : 'text-slate-500'}`}>
+                                  {alert.msg}
+                              </td>
+                              <td className="p-3 text-right">
+                                  {alert.active && (
+                                      <button 
+                                        onClick={() => acknowledge(alert.id)}
+                                        className="text-cyan-500 hover:text-cyan-300 flex items-center gap-1 ml-auto px-2 py-1 rounded hover:bg-cyan-900/30 border border-transparent hover:border-cyan-800 transition-all"
+                                      >
+                                          <CheckSquare size={14} /> <span className="text-[9px] uppercase font-bold">{t.ack}</span>
+                                      </button>
+                                  )}
+                                  {!alert.active && (
+                                      <span className="text-green-500 flex items-center justify-end gap-1 text-[9px] uppercase font-bold">
+                                          <CheckCircle size={14} /> {t.resolved}
+                                      </span>
+                                  )}
+                              </td>
+                          </tr>
+                      ))}
+                  </tbody>
+              </table>
+          </div>
+          
+          {filteredAlerts.length === 0 && (
+            <div className="p-12 text-center text-slate-600 italic">
+                {t.noEvents}
+            </div>
+          )}
       </div>
     </div>
   );
