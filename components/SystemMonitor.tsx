@@ -1,8 +1,8 @@
 
 import React, { useEffect, useState } from 'react';
-import { Language } from '../types';
+import { Language, AccessLog } from '../types';
 import { TRANSLATIONS } from '../constants';
-import { Server, Activity, Wifi, Database, Zap, Share2 } from 'lucide-react';
+import { Server, Activity, Wifi, Database, Zap, Share2, Globe, ShieldCheck } from 'lucide-react';
 
 interface SystemMonitorProps {
   language: Language;
@@ -11,123 +11,167 @@ interface SystemMonitorProps {
 const SystemMonitor: React.FC<SystemMonitorProps> = ({ language }) => {
   const t = TRANSLATIONS[language].system;
   
-  const [metrics, setMetrics] = useState({
-    core1: 45,
-    core2: 62,
-    core3: 28,
-    power: [40, 45, 42, 50, 55, 52, 48, 60, 65, 62], // History for chart
-    latency: 12,
-  });
+  // Data States
+  const [cpuHistory, setCpuHistory] = useState<number[]>(new Array(20).fill(20));
+  const [ramHistory, setRamHistory] = useState<number[]>(new Array(20).fill(40));
+  const [netHistory, setNetHistory] = useState<number[]>(new Array(20).fill(10));
+  const [logs, setLogs] = useState<AccessLog[]>([]);
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setMetrics(prev => ({
-        core1: Math.random() * 60 + 20,
-        core2: Math.random() * 60 + 20,
-        core3: Math.random() * 60 + 20,
-        power: [...prev.power.slice(1), Math.random() * 30 + 40],
-        latency: Math.floor(Math.random() * 20 + 10),
-      }));
+      const time = new Date().toLocaleTimeString();
+      
+      // Update Charts
+      setCpuHistory(prev => [...prev.slice(1), Math.random() * 40 + 20]); // 20-60%
+      setRamHistory(prev => [...prev.slice(1), Math.random() * 10 + 45]); // 45-55%
+      setNetHistory(prev => [...prev.slice(1), Math.random() * 500 + 100]); // 100-600 req/s
+
+      // Add Access Log
+      if (Math.random() > 0.5) {
+         const newLog: AccessLog = {
+            id: Math.random().toString(36).substr(2, 5),
+            ip: `192.168.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}`,
+            endpoint: ['/api/telemetry', '/api/auth', '/ws/stream', '/db/query'][Math.floor(Math.random()*4)],
+            status: Math.random() > 0.9 ? 401 : 200,
+            timestamp: time,
+            latency: Math.floor(Math.random() * 50 + 10)
+         };
+         setLogs(prev => [newLog, ...prev.slice(0, 7)]);
+      }
     }, 1000);
     return () => clearInterval(interval);
   }, []);
 
+  // Helper for SVG Path
+  const getPath = (data: number[], max: number, height: number, width: number) => {
+    if (data.length === 0) return "";
+    const step = width / (data.length - 1);
+    const points = data.map((val, i) => {
+       const x = i * step;
+       const y = height - (val / max) * height;
+       return `${x},${y}`;
+    });
+    return `M0,${height} L${points.join(' L')} L${width},${height} Z`;
+  };
+
+  const getLinePath = (data: number[], max: number, height: number, width: number) => {
+    if (data.length === 0) return "";
+    const step = width / (data.length - 1);
+    const points = data.map((val, i) => {
+       const x = i * step;
+       const y = height - (val / max) * height;
+       return `${x},${y}`;
+    });
+    return `M${points.join(' L')}`;
+  };
+
   return (
-    <div className="p-8 h-full overflow-y-auto bg-slate-950 text-slate-300">
+    <div className="p-8 h-full overflow-y-auto bg-slate-950 text-slate-300 font-mono">
       <h2 className="text-2xl text-cyan-400 font-bold tracking-wider uppercase mb-8 border-b border-cyan-900/50 pb-4 flex items-center gap-2">
         <Activity /> {t.title}
       </h2>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         
-        {/* 1. Processor Status */}
+        {/* 1. CPU Usage Area Chart */}
         <div className="bg-slate-900/40 border border-cyan-900/30 p-4 rounded-lg backdrop-blur-sm">
-          <div className="flex items-center gap-2 mb-4 text-cyan-300 border-b border-cyan-900/20 pb-2">
-            <Server size={16} />
-            <h3 className="font-bold text-xs uppercase tracking-widest">{t.cpu}</h3>
-          </div>
-          <div className="space-y-4">
-             {['PRIMARY', 'SECONDARY', 'PHYSICS_AI'].map((label, idx) => {
-               const val = idx === 0 ? metrics.core1 : idx === 1 ? metrics.core2 : metrics.core3;
-               return (
-                 <div key={label}>
-                    <div className="flex justify-between text-[10px] font-mono mb-1 text-slate-400">
-                      <span>{label}</span>
-                      <span>{val.toFixed(1)}%</span>
-                    </div>
-                    <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-cyan-500 transition-all duration-500" style={{ width: `${val}%` }}></div>
-                    </div>
-                 </div>
-               );
-             })}
-          </div>
-        </div>
-
-        {/* 2. Power Grid History (Chart) */}
-        <div className="bg-slate-900/40 border border-cyan-900/30 p-4 rounded-lg backdrop-blur-sm">
-          <div className="flex items-center gap-2 mb-4 text-yellow-400 border-b border-yellow-900/20 pb-2">
-            <Zap size={16} />
-            <h3 className="font-bold text-xs uppercase tracking-widest">{t.power}</h3>
-          </div>
-          <div className="h-32 flex items-end gap-1">
-             {metrics.power.map((val, i) => (
-                <div key={i} className="flex-1 bg-yellow-500/20 border-t border-yellow-500 relative group">
-                   <div className="absolute bottom-0 left-0 right-0 bg-yellow-500/30 transition-all duration-500" style={{ height: `${val}%` }}></div>
-                </div>
-             ))}
-          </div>
-          <div className="mt-2 text-[10px] font-mono text-yellow-600 text-center">KW/h OUTPUT HISTORY</div>
-        </div>
-
-        {/* 3. Network Topology (Visual) */}
-        <div className="bg-slate-900/40 border border-cyan-900/30 p-4 rounded-lg backdrop-blur-sm relative overflow-hidden">
-           <div className="flex items-center gap-2 mb-4 text-purple-400 border-b border-purple-900/20 pb-2 relative z-10">
-            <Share2 size={16} />
-            <h3 className="font-bold text-xs uppercase tracking-widest">{t.topology}</h3>
+           <div className="flex justify-between mb-2 text-cyan-300 text-xs font-bold uppercase">
+              <span className="flex items-center gap-2"><Server size={14}/> {t.cpu}</span>
+              <span>{cpuHistory[cpuHistory.length-1].toFixed(1)}%</span>
            </div>
-           
-           {/* Simulated Nodes */}
-           <div className="h-32 relative z-0">
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 bg-cyan-500 rounded-full flex items-center justify-center shadow-[0_0_15px_cyan] animate-pulse z-10">
-                 <Database size={14} className="text-black" />
+           <div className="h-24 w-full bg-slate-950/50 border border-slate-800 relative overflow-hidden rounded">
+              <svg width="100%" height="100%" viewBox="0 0 300 100" preserveAspectRatio="none" className="absolute inset-0">
+                 <path d={getPath(cpuHistory, 100, 100, 300)} fill="rgba(6,182,212,0.2)" stroke="none" />
+                 <path d={getLinePath(cpuHistory, 100, 100, 300)} fill="none" stroke="#06b6d4" strokeWidth="2" />
+              </svg>
+           </div>
+        </div>
+
+        {/* 2. Memory Usage Area Chart */}
+        <div className="bg-slate-900/40 border border-purple-900/30 p-4 rounded-lg backdrop-blur-sm">
+           <div className="flex justify-between mb-2 text-purple-300 text-xs font-bold uppercase">
+              <span className="flex items-center gap-2"><Database size={14}/> {t.mem}</span>
+              <span>{ramHistory[ramHistory.length-1].toFixed(1)}%</span>
+           </div>
+           <div className="h-24 w-full bg-slate-950/50 border border-slate-800 relative overflow-hidden rounded">
+              <svg width="100%" height="100%" viewBox="0 0 300 100" preserveAspectRatio="none" className="absolute inset-0">
+                 <path d={getPath(ramHistory, 100, 100, 300)} fill="rgba(147,51,234,0.2)" stroke="none" />
+                 <path d={getLinePath(ramHistory, 100, 100, 300)} fill="none" stroke="#9333ea" strokeWidth="2" />
+              </svg>
+           </div>
+        </div>
+
+        {/* 3. Network Requests Area Chart */}
+        <div className="bg-slate-900/40 border border-green-900/30 p-4 rounded-lg backdrop-blur-sm">
+           <div className="flex justify-between mb-2 text-green-300 text-xs font-bold uppercase">
+              <span className="flex items-center gap-2"><Globe size={14}/> {t.net}</span>
+              <span>{Math.floor(netHistory[netHistory.length-1])} {t.requests}</span>
+           </div>
+           <div className="h-24 w-full bg-slate-950/50 border border-slate-800 relative overflow-hidden rounded">
+              <svg width="100%" height="100%" viewBox="0 0 300 100" preserveAspectRatio="none" className="absolute inset-0">
+                 <path d={getPath(netHistory, 800, 100, 300)} fill="rgba(34,197,94,0.2)" stroke="none" />
+                 <path d={getLinePath(netHistory, 800, 100, 300)} fill="none" stroke="#22c55e" strokeWidth="2" />
+              </svg>
+           </div>
+        </div>
+
+        {/* 4. Access Logs Table */}
+        <div className="col-span-1 md:col-span-2 bg-slate-900/40 border border-slate-800 p-4 rounded-lg">
+           <div className="flex items-center gap-2 mb-4 text-slate-400 border-b border-slate-800 pb-2 text-xs font-bold uppercase">
+              <ShieldCheck size={14} /> {t.logs}
+           </div>
+           <table className="w-full text-[10px] text-left">
+              <thead className="text-slate-500 uppercase">
+                 <tr>
+                    <th className="pb-2">Time</th>
+                    <th className="pb-2">IP Address</th>
+                    <th className="pb-2">Endpoint</th>
+                    <th className="pb-2">Status</th>
+                    <th className="pb-2 text-right">Latency</th>
+                 </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/50">
+                 {logs.map(log => (
+                    <tr key={log.id} className="hover:bg-white/5">
+                       <td className="py-2 text-cyan-600">{log.timestamp}</td>
+                       <td className="py-2 text-slate-300">{log.ip}</td>
+                       <td className="py-2 text-slate-400">{log.endpoint}</td>
+                       <td className={`py-2 ${log.status === 200 ? 'text-green-500' : 'text-red-500'}`}>{log.status}</td>
+                       <td className="py-2 text-right text-slate-500">{log.latency}ms</td>
+                    </tr>
+                 ))}
+              </tbody>
+           </table>
+        </div>
+
+        {/* 5. Active Nodes Status */}
+        <div className="bg-slate-900/40 border border-slate-800 p-4 rounded-lg">
+           <div className="flex items-center gap-2 mb-4 text-slate-400 border-b border-slate-800 pb-2 text-xs font-bold uppercase">
+              <Share2 size={14} /> {t.topology}
+           </div>
+           <div className="space-y-3">
+              <div className="flex justify-between items-center p-2 bg-slate-950 rounded border border-slate-800/50">
+                 <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                    <span className="text-xs">US-EAST-1</span>
+                 </div>
+                 <span className="text-[10px] text-slate-500">LOAD 34%</span>
               </div>
-              {/* Satellites */}
-              {[0, 72, 144, 216, 288].map((deg, i) => (
-                 <div key={i} className="absolute top-1/2 left-1/2 w-2 h-2 bg-purple-500 rounded-full" style={{
-                    transform: `translate(-50%, -50%) rotate(${deg}deg) translate(60px) rotate(-${deg}deg)`
-                 }}>
-                    {/* Connecting Line */}
-                    <div className="absolute top-1/2 left-1/2 w-[60px] h-[1px] bg-purple-500/50 origin-left" style={{ transform: `rotate(${deg + 180}deg)` }}></div>
+              <div className="flex justify-between items-center p-2 bg-slate-950 rounded border border-slate-800/50">
+                 <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                    <span className="text-xs">EU-CENTRAL</span>
                  </div>
-              ))}
+                 <span className="text-[10px] text-slate-500">LOAD 52%</span>
+              </div>
+              <div className="flex justify-between items-center p-2 bg-slate-950 rounded border border-slate-800/50">
+                 <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
+                    <span className="text-xs">AP-NORTHEAST</span>
+                 </div>
+                 <span className="text-[10px] text-slate-500">MAINTENANCE</span>
+              </div>
            </div>
-        </div>
-
-        {/* 4. Global Sensor Array Table */}
-        <div className="col-span-1 md:col-span-3 bg-slate-900/40 border border-cyan-900/30 p-4 rounded-lg font-mono text-xs">
-          <div className="flex items-center gap-2 mb-4 text-slate-300 border-b border-slate-800 pb-2">
-            <Wifi size={16} />
-            <h3 className="font-bold text-xs uppercase tracking-widest">{t.sensors}</h3>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-             <div className="bg-slate-950 p-3 rounded border border-slate-800 flex justify-between items-center">
-                <span className="text-slate-500">DSN-GOLDSTONE</span>
-                <span className="text-green-500">{t.online}</span>
-             </div>
-             <div className="bg-slate-950 p-3 rounded border border-slate-800 flex justify-between items-center">
-                <span className="text-slate-500">DSN-MADRID</span>
-                <span className="text-green-500">{t.online}</span>
-             </div>
-             <div className="bg-slate-950 p-3 rounded border border-slate-800 flex justify-between items-center">
-                <span className="text-slate-500">DSN-CANBERRA</span>
-                <span className="text-green-500">{t.online}</span>
-             </div>
-             <div className="bg-slate-950 p-3 rounded border border-slate-800 flex justify-between items-center">
-                <span className="text-slate-500">LUNAR-RELAY</span>
-                <span className="text-yellow-500 animate-pulse">{t.calibrating}</span>
-             </div>
-          </div>
         </div>
 
       </div>

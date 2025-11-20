@@ -58,11 +58,11 @@ const ControlCenter: React.FC<ControlCenterProps> = ({
               <div className="flex justify-between text-xs text-slate-400 mb-2 font-mono">
                  <span>1x</span>
                  <span className="text-purple-400 font-bold">{timeSpeed}x {t.speed}</span>
-                 <span>1000x</span>
+                 <span>20000x</span>
               </div>
               <input 
                 type="range" 
-                min="1" max="1000" step="10" 
+                min="1" max="20000" step="100" 
                 value={timeSpeed}
                 onChange={(e) => setTimeSpeed(Number(e.target.value))}
                 className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-purple-500"

@@ -17,21 +17,18 @@ const App: React.FC = () => {
   const [language, setLanguage] = useState<Language>(Language.CN);
   const [currentView, setCurrentView] = useState<View>(View.DASHBOARD);
   
-  // Target Data
   const [targets, setTargets] = useState<SpaceTarget[]>(INITIAL_TARGETS);
   const [selectedTargetId, setSelectedTargetId] = useState<string | null>(null);
   const [showOrbits, setShowOrbits] = useState<boolean>(true);
 
-  // Time Simulation Engine
   const [timeMode, setTimeMode] = useState<TimeMode>(TimeMode.REALTIME);
-  const [timeSpeed, setTimeSpeed] = useState<number>(100); // Multiplier
+  const [timeSpeed, setTimeSpeed] = useState<number>(100); 
   const [simulationTime, setSimulationTime] = useState<number>(Date.now());
 
-  // Constants
   const t = TRANSLATIONS[language];
   const d = t.dashboard;
 
-  // --- Time Loop ---
+  // --- High Performance Time Loop ---
   useEffect(() => {
     let lastFrame = performance.now();
     let animationFrameId: number;
@@ -44,6 +41,8 @@ const App: React.FC = () => {
         setSimulationTime(Date.now());
       } else {
         // Advance time by delta * speed
+        // delta is in ms. simulationTime is in ms.
+        // If speed is 1000, we add 1000ms for every 1ms real time.
         setSimulationTime(prev => prev + (delta * timeSpeed));
       }
 
@@ -66,7 +65,6 @@ const App: React.FC = () => {
 
   const selectedTarget = targets.find(t => t.id === selectedTargetId) || null;
 
-  // --- Render Views ---
   const renderMainContent = () => {
     switch (currentView) {
       case View.SYSTEM:
@@ -96,7 +94,6 @@ const App: React.FC = () => {
       default:
         return (
           <div className="flex h-full relative">
-            {/* Sidebar: List */}
             <Sidebar 
               targets={targets} 
               selectedId={selectedTargetId} 
@@ -104,7 +101,6 @@ const App: React.FC = () => {
               language={language}
             />
 
-            {/* Center: 3D Viz */}
             <main className="flex-1 relative group bg-black overflow-hidden">
               <OrbitVisualizer 
                 targets={targets}
@@ -128,7 +124,6 @@ const App: React.FC = () => {
               </div>
             </main>
 
-            {/* Right Panel */}
             <div className="w-80 border-l border-cyan-900/30 bg-slate-950/90 backdrop-blur-sm flex flex-col z-20 shadow-xl">
               <div className="h-1/2 border-b border-cyan-900/30 p-4 overflow-y-auto">
                   <h2 className="text-cyan-400 font-bold tracking-widest text-xs mb-4 uppercase border-b border-cyan-900/50 pb-2">
@@ -138,8 +133,9 @@ const App: React.FC = () => {
                     <div className="space-y-3 font-mono text-xs">
                       <div className="flex justify-between p-1 hover:bg-white/5"><span className="text-slate-500">ID:</span><span className="text-slate-300">{selectedTarget.id}</span></div>
                       <div className="flex justify-between p-1 hover:bg-white/5"><span className="text-slate-500">NAME:</span><span className="text-cyan-300 font-bold">{selectedTarget.name}</span></div>
-                      <div className="flex justify-between p-1 hover:bg-white/5"><span className="text-slate-500">INC:</span><span className="text-slate-300">{selectedTarget.orbit.inclination.toFixed(2)}°</span></div>
-                      <div className="flex justify-between p-1 hover:bg-white/5"><span className="text-slate-500">ECC:</span><span className="text-slate-300">{selectedTarget.orbit.eccentricity.toFixed(4)}</span></div>
+                      <div className="flex justify-between p-1 hover:bg-white/5"><span className="text-slate-500">INC:</span><span className="text-slate-300">{selectedTarget.orbit.inclination.toFixed(4)}°</span></div>
+                      <div className="flex justify-between p-1 hover:bg-white/5"><span className="text-slate-500">ECC:</span><span className="text-slate-300">{selectedTarget.orbit.eccentricity.toFixed(6)}</span></div>
+                      <div className="flex justify-between p-1 hover:bg-white/5"><span className="text-slate-500">PERIOD:</span><span className="text-slate-300">{(86400 / selectedTarget.orbit.meanMotion / 60).toFixed(1)} min</span></div>
                       <div className="mt-4 p-2 border border-cyan-900/30 bg-cyan-950/20 rounded text-[10px] text-cyan-400/80">
                         {d.signal}<br/>{d.source}: DSN-4
                       </div>

@@ -1,7 +1,8 @@
 
-import { Language, TargetType, SpaceTarget, View } from './types';
+import { Language, TargetType, SpaceTarget, View, GroundStation } from './types';
+import { PhysicsEngine } from './utils';
 
-// Mapping for Data Values (e.g., "SATELLITE" -> "人造卫星")
+// Mapping for Data Values
 export const TYPE_LABELS = {
   [Language.EN]: {
     [TargetType.SATELLITE]: "Satellite",
@@ -29,6 +30,13 @@ export const RISK_LABELS = {
   [Language.JP]: { LOW: "安定", MEDIUM: "注意", HIGH: "高リスク", CRITICAL: "危険" },
 };
 
+// Real Ground Stations
+export const GROUND_STATIONS: GroundStation[] = [
+  { id: 'DSN-1', name: 'Goldstone (USA)', lat: 35.426, lon: -116.89, alt: 1.0 },
+  { id: 'DSN-2', name: 'Madrid (ESP)', lat: 40.425, lon: -4.248, alt: 0.8 },
+  { id: 'DSN-3', name: 'Canberra (AUS)', lat: -35.401, lon: 148.98, alt: 0.6 },
+];
+
 export const TRANSLATIONS = {
   [Language.EN]: {
     appTitle: "ASTROSENTINEL",
@@ -42,7 +50,7 @@ export const TRANSLATIONS = {
     },
     dashboard: {
       targets: "Active Targets",
-      analysis: "AI Intelligence Analysis",
+      analysis: "Mission Analysis",
       orbitToggle: "Orbit Lines",
       resume: "Real-time",
       simulation: "Simulation",
@@ -53,25 +61,40 @@ export const TRANSLATIONS = {
       signal: "SIGNAL LOCKED",
       source: "SOURCE",
       camControl: "CAMERA CONTROL",
+      search: "Search Target ID/Name...",
+      livePos: "REAL-TIME ORBITAL STATE",
+      latitude: "LATITUDE",
+      longitude: "LONGITUDE",
+      altitude: "ALTITUDE",
+      velocity: "VELOCITY",
+      groundLink: "GROUND STATION LINK",
+      passPred: "PASS PREDICTION",
+      nextPass: "Next Acquisition",
+      noLink: "NO ACTIVE LINK",
+      acquiring: "ACQUIRING...",
+      linked: "LINK ESTABLISHED",
     },
     system: {
-      title: "System Status Monitor",
-      cpu: "Core Processing",
-      mem: "Memory Buffer",
-      net: "Uplink Latency",
+      title: "System Status Dashboard",
+      cpu: "CPU Load (24h)",
+      mem: "Memory Usage",
+      net: "Network Traffic",
       sensors: "Sensor Array Status",
       power: "Power Grid Distribution",
-      topology: "Network Topology",
+      topology: "Active Sessions",
       online: "ONLINE",
       offline: "OFFLINE",
       calibrating: "CALIBRATING",
-      logs: "System Logs",
+      logs: "Access Logs",
+      requests: "REQ/s",
+      latency: "LATENCY",
     },
     targets: {
       title: "Orbital Object Database",
       manage: "Manage Groups",
       filter: "Filter Class",
-      addNew: "Add New Target",
+      addNew: "Import TLE",
+      edit: "Edit Target",
       delete: "Remove",
       tableID: "ID",
       tableName: "Designation",
@@ -80,9 +103,12 @@ export const TRANSLATIONS = {
       tableOrbit: "Orbit Param",
       action: "Action",
       all: "All Targets",
-      modalTitle: "Initialize Tracking",
-      confirm: "Confirm",
+      modalTitle: "Import TLE Data",
+      editTitle: "Edit Target Parameters",
+      confirm: "Import Data",
+      save: "Save Changes",
       cancel: "Cancel",
+      tlePlaceholder: "Paste 2-Line Element Set here...",
     },
     alerts: {
       title: "Early Warning System",
@@ -105,7 +131,7 @@ export const TRANSLATIONS = {
       standby: "STANDBY",
       logConsole: "Command Log",
     },
-    genAiPrompt: "Initializing AI Analysis...",
+    genAiPrompt: "Calculating orbital mechanics...",
     footer: "USSPACECOM // CLASSIFIED // EYES ONLY",
   },
   [Language.CN]: {
@@ -120,7 +146,7 @@ export const TRANSLATIONS = {
     },
     dashboard: {
       targets: "在轨目标",
-      analysis: "AI 智能情报分析",
+      analysis: "任务分析",
       orbitToggle: "轨道显示",
       resume: "实时同步",
       simulation: "模拟模式",
@@ -131,25 +157,40 @@ export const TRANSLATIONS = {
       signal: "信号锁定",
       source: "数据源",
       camControl: "视角控制",
+      search: "搜索目标编号/代号...",
+      livePos: "实时轨道状态矢量",
+      latitude: "纬度 (LAT)",
+      longitude: "经度 (LON)",
+      altitude: "高度 (ALT)",
+      velocity: "速度 (VEL)",
+      groundLink: "地面站链路状态",
+      passPred: "过境预报",
+      nextPass: "下次过境时间",
+      noLink: "链路断开",
+      acquiring: "正在捕获...",
+      linked: "链路已建立",
     },
     system: {
-      title: "系统状态监控",
-      cpu: "核心处理负载",
-      mem: "内存缓冲池",
-      net: "上行链路延迟",
+      title: "系统综合监控仪表盘",
+      cpu: "CPU 负载趋势 (24h)",
+      mem: "内存占用历史",
+      net: "网络吞吐量",
       sensors: "传感器阵列状态",
       power: "能源网格分配",
-      topology: "网络拓扑结构",
+      topology: "活跃会话",
       online: "在线",
       offline: "离线",
       calibrating: "校准中",
-      logs: "系统日志",
+      logs: "访问日志",
+      requests: "请求/秒",
+      latency: "延迟 (ms)",
     },
     targets: {
       title: "轨道目标数据库",
       manage: "分组管理",
       filter: "类别筛选",
-      addNew: "新增目标",
+      addNew: "导入 TLE",
+      edit: "编辑目标",
       delete: "移除",
       tableID: "编号",
       tableName: "代号",
@@ -158,9 +199,12 @@ export const TRANSLATIONS = {
       tableOrbit: "轨道参数",
       action: "操作",
       all: "显示全部",
-      modalTitle: "初始化追踪任务",
-      confirm: "确认添加",
+      modalTitle: "导入 TLE 轨道数据",
+      editTitle: "编辑目标参数",
+      confirm: "导入数据",
+      save: "保存更改",
       cancel: "取消",
+      tlePlaceholder: "在此处粘贴两行轨道要素 (TLE)...",
     },
     alerts: {
       title: "早期预警系统",
@@ -183,7 +227,7 @@ export const TRANSLATIONS = {
       standby: "待机",
       logConsole: "指令日志",
     },
-    genAiPrompt: "正在初始化 AI 分析...",
+    genAiPrompt: "正在计算轨道力学参数...",
     footer: "国家航天局 // 机密 // 仅限内部",
   },
   [Language.JP]: {
@@ -198,7 +242,7 @@ export const TRANSLATIONS = {
     },
     dashboard: {
       targets: "アクティブ目標",
-      analysis: "AI インテリジェンス",
+      analysis: "ミッション分析",
       orbitToggle: "軌道表示",
       resume: "リアルタイム",
       simulation: "シミュレーション",
@@ -209,25 +253,40 @@ export const TRANSLATIONS = {
       signal: "信号ロック",
       source: "ソース",
       camControl: "カメラ制御",
+      search: "ターゲットID/名称検索...",
+      livePos: "リアルタイム軌道状態",
+      latitude: "緯度",
+      longitude: "経度",
+      altitude: "高度",
+      velocity: "速度",
+      groundLink: "地上局リンク状態",
+      passPred: "パス予測",
+      nextPass: "次回捕捉",
+      noLink: "リンクなし",
+      acquiring: "捕捉中...",
+      linked: "リンク確立",
     },
     system: {
-      title: "システムステータス",
-      cpu: "コア処理負荷",
-      mem: "メモリバッファ",
-      net: "アップリンク遅延",
+      title: "システム総合ダッシュボード",
+      cpu: "CPU負荷推移 (24h)",
+      mem: "メモリ使用率",
+      net: "ネットワークトラフィック",
       sensors: "センサーアレイ",
       power: "電力グリッド配分",
-      topology: "ネットワークトポロジ",
+      topology: "アクティブセッション",
       online: "オンライン",
       offline: "オフライン",
       calibrating: "調整中",
-      logs: "システムログ",
+      logs: "アクセスログ",
+      requests: "REQ/s",
+      latency: "遅延 (ms)",
     },
     targets: {
       title: "軌道物体データベース",
       manage: "グループ管理",
       filter: "クラスフィルタ",
-      addNew: "新規ターゲット",
+      addNew: "TLEインポート",
+      edit: "編集",
       delete: "削除",
       tableID: "ID",
       tableName: "名称",
@@ -236,9 +295,12 @@ export const TRANSLATIONS = {
       tableOrbit: "軌道パラメータ",
       action: "操作",
       all: "すべて表示",
-      modalTitle: "追跡初期化",
-      confirm: "確認",
+      modalTitle: "TLEデータインポート",
+      editTitle: "ターゲット編集",
+      confirm: "インポート",
+      save: "保存",
       cancel: "キャンセル",
+      tlePlaceholder: "2行軌道要素(TLE)をここに貼り付け...",
     },
     alerts: {
       title: "早期警戒システム",
@@ -261,82 +323,67 @@ export const TRANSLATIONS = {
       standby: "スタンバイ",
       logConsole: "コマンドログ",
     },
-    genAiPrompt: "AI分析を初期化中...",
+    genAiPrompt: "軌道力学を計算中...",
     footer: "宇宙作戦隊 // 極秘 // 内部のみ",
   },
 };
 
+// Helper to create targets with TLE
+const createTLETarget = (id: string, name: string, type: TargetType, group: string, risk: any, tle1: string, tle2: string): SpaceTarget => {
+  const orbit = PhysicsEngine.parseTLE(tle1, tle2);
+  if (!orbit) throw new Error(`Invalid TLE for ${name}`);
+  
+  // Set custom colors based on type
+  orbit.color = type === TargetType.STATION ? '#22d3ee' : 
+                type === TargetType.DEBRIS ? '#ef4444' :
+                type === TargetType.ASTEROID ? '#fbbf24' : '#34d399';
+
+  return {
+    id, name, type, group, riskLevel: risk, lastUpdate: '0.0s', 
+    orbit, tle1, tle2
+  };
+};
+
+// Real TLE Data
 export const INITIAL_TARGETS: SpaceTarget[] = [
+  createTLETarget(
+    'ISS', 'ISS (ZARYA)', TargetType.STATION, 'LEO_STATIONS', 'LOW',
+    '1 25544U 98067A   24068.52638889  .00016717  00000+0  30112-3 0  9993',
+    '2 25544  51.6410 146.5012 0005329  32.5024  76.8921 15.49904501442976'
+  ),
+  createTLETarget(
+    'CSS', 'TIANGONG', TargetType.STATION, 'LEO_STATIONS', 'LOW',
+    '1 48274U 21035A   24068.55763889  .00032712  00000+0  34211-3 0  9998',
+    '2 48274  41.4735 220.5521 0006221 240.1212 209.8872 15.59821421152142'
+  ),
+  createTLETarget(
+    'HST', 'HUBBLE', TargetType.SATELLITE, 'OBSERVATORY', 'LOW',
+    '1 20580U 90037B   24067.87500000  .00001471  00000+0  62822-4 0  9994',
+    '2 20580  28.4693 100.1122 0002521  89.1122 270.9981 15.09001231211234'
+  ),
+  createTLETarget(
+    'SL-1001', 'STARLINK-1001', TargetType.SATELLITE, 'CONSTELLATION', 'MEDIUM',
+    '1 44713U 19074A   24068.12345678  .00000521  00000+0  52122-4 0  9999',
+    '2 44713  53.0541  12.1122 0001221  78.1234 282.1234 15.06392131234567'
+  ),
+  createTLETarget(
+    'FY-1C', 'FENGYUN 1C DEB', TargetType.DEBRIS, 'DEBRIS_FIELD', 'HIGH',
+    '1 25730U 99025A   24068.11111111  .00000123  00000+0  12345-4 0  9991',
+    '2 25730  98.6123 240.1234 0151234 120.1234 240.1234 14.12345678123456'
+  ),
+  // Manually constructed Asteroid (Mock TLE-like data structure)
   {
-    id: 'ISS-25544',
-    name: 'ISS (Zarya)',
-    type: TargetType.STATION,
-    riskLevel: 'LOW',
-    lastUpdate: '0.2s',
-    group: 'LEO_STATIONS',
-    orbit: { semiMajorAxis: 80, eccentricity: 0.0006, inclination: 51.64, raan: 120, argPe: 0, meanAnomaly: 0, period: 0.008, color: '#22d3ee' },
-  },
-  {
-    id: 'CSS-48274',
-    name: 'Tiangong (CSS)',
-    type: TargetType.STATION,
-    riskLevel: 'LOW',
-    lastUpdate: '0.5s',
-    group: 'LEO_STATIONS',
-    orbit: { semiMajorAxis: 82, eccentricity: 0.0008, inclination: 41.47, raan: 240, argPe: 50, meanAnomaly: 180, period: 0.0082, color: '#f472b6' },
-  },
-  {
-    id: 'HST-20580',
-    name: 'Hubble Telescope',
-    type: TargetType.SATELLITE,
-    riskLevel: 'LOW',
-    lastUpdate: '1.2s',
-    group: 'OBSERVATORY',
-    orbit: { semiMajorAxis: 90, eccentricity: 0.0003, inclination: 28.47, raan: 60, argPe: 120, meanAnomaly: 45, period: 0.009, color: '#a78bfa' },
-  },
-  {
-    id: 'GPS-BIIR-11',
-    name: 'GPS BIIR-11',
-    type: TargetType.SATELLITE,
-    riskLevel: 'LOW',
-    lastUpdate: '2.1s',
-    group: 'MEO_NAV',
-    orbit: { semiMajorAxis: 250, eccentricity: 0.01, inclination: 55.0, raan: 0, argPe: 0, meanAnomaly: 90, period: 0.02, color: '#60a5fa' },
-  },
-  {
-    id: 'SL-1120',
-    name: 'Starlink-1120',
-    type: TargetType.SATELLITE,
-    riskLevel: 'MEDIUM',
-    lastUpdate: '0.1s',
-    group: 'CONSTELLATION',
-    orbit: { semiMajorAxis: 75, eccentricity: 0.0001, inclination: 53.0, raan: 15, argPe: 90, meanAnomaly: 30, period: 0.0075, color: '#34d399' },
-  },
-  {
-    id: 'DEB-FY1C',
-    name: 'FENGYUN 1C DEB',
-    type: TargetType.DEBRIS,
-    riskLevel: 'HIGH',
-    lastUpdate: '5.0s',
-    group: 'DEBRIS_FIELD',
-    orbit: { semiMajorAxis: 120, eccentricity: 0.15, inclination: 98.6, raan: 300, argPe: 45, meanAnomaly: 120, period: 0.012, color: '#ef4444' },
-  },
-  {
-    id: 'AST-2024-BX1',
-    name: '2024 BX1',
-    type: TargetType.ASTEROID,
-    riskLevel: 'CRITICAL',
-    lastUpdate: '10s',
-    group: 'NEO',
-    orbit: { semiMajorAxis: 400, eccentricity: 0.45, inclination: 15.0, raan: 45, argPe: 30, meanAnomaly: 350, period: 0.05, color: '#fbbf24' },
-  },
-  {
-    id: 'GALILEO-22',
-    name: 'GSAT0222',
-    type: TargetType.SATELLITE,
-    riskLevel: 'LOW',
-    lastUpdate: '3s',
-    group: 'MEO_NAV',
-    orbit: { semiMajorAxis: 280, eccentricity: 0.002, inclination: 56.0, raan: 120, argPe: 10, meanAnomaly: 150, period: 0.025, color: '#c084fc' },
+     id: '2024-BX1', name: '2024 BX1', type: TargetType.ASTEROID, group: 'NEO', riskLevel: 'CRITICAL', lastUpdate: '0s',
+     orbit: {
+        semiMajorAxis: 10000, 
+        eccentricity: 0.4,
+        inclination: 15,
+        raan: 45,
+        argPe: 30,
+        meanAnomaly: 20,
+        meanMotion: 2,
+        color: '#fbbf24',
+        epoch: Date.now()
+     }
   }
 ];

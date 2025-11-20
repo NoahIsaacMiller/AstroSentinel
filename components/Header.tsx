@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Language } from '../types';
 import { TRANSLATIONS } from '../constants';
@@ -32,9 +33,9 @@ const Header: React.FC<HeaderProps> = ({
 
       <div className="flex items-center gap-3">
         {/* Real-time Indicator */}
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded border border-red-900/30 bg-red-950/20 text-red-400 text-xs font-mono">
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded border border-red-900/50 bg-red-950/30 text-red-400 text-xs font-mono shadow-[0_0_5px_rgba(220,38,38,0.2)]">
           <Radio size={12} className="animate-pulse" />
-          <span className="tracking-widest">{d.resume.toUpperCase()}</span>
+          <span className="tracking-widest font-bold">{d.resume.toUpperCase()}</span>
         </div>
 
         <button 
