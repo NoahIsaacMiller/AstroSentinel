@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Language } from '../types';
-import { TRANSLATIONS } from '../constants';
+import { TRANSLATIONS, RISK_LABELS, ALERT_DATA } from '../constants';
 import { AlertTriangle, AlertOctagon, Info, CheckCircle, ShieldAlert, Activity, CheckSquare } from 'lucide-react';
 
 interface AlertsViewProps {
@@ -10,14 +10,18 @@ interface AlertsViewProps {
 
 const AlertsView: React.FC<AlertsViewProps> = ({ language }) => {
   const t = TRANSLATIONS[language].alerts;
+  const categories = ALERT_DATA.CATEGORIES[language];
+  const sources = ALERT_DATA.SOURCES[language];
+  const messages = ALERT_DATA.MESSAGES[language];
+  const riskLabels = RISK_LABELS[language];
 
-  // Mock alerts state
+  // Mock alerts state using translation keys
   const [alerts, setAlerts] = useState([
-    { id: 1, level: 'CRITICAL', msg: "COLLISION VECTOR DETECTED: ISS / DEB-992", time: "10:04:22 UTC", active: true, category: 'ORBITAL', source: 'RADAR-1' },
-    { id: 2, level: 'WARNING', msg: "SOLAR FLARE (X-CLASS) INBOUND", time: "09:55:00 UTC", active: true, category: 'WEATHER', source: 'NOAA-SWPC' },
-    { id: 3, level: 'INFO', msg: "GROUND STATION HANDOVER: DSN-3", time: "08:00:00 UTC", active: false, category: 'SYSTEM', source: 'AUTO' },
-    { id: 4, level: 'CRITICAL', msg: "LOSS OF TELEMETRY: STARLINK-1001", time: "07:42:11 UTC", active: true, category: 'COMMS', source: 'SYS_MON' },
-    { id: 5, level: 'INFO', msg: "ORBITAL MANEUVER COMPLETE: CSS", time: "06:30:00 UTC", active: false, category: 'ORBITAL', source: 'TELEMETRY' },
+    { id: 1, level: 'CRITICAL', msgKey: 'COL_VEC', time: "10:04:22 UTC", active: true, catKey: 'ORBITAL', srcKey: 'RADAR-1' },
+    { id: 2, level: 'WARNING', msgKey: 'SOLAR', time: "09:55:00 UTC", active: true, catKey: 'WEATHER', srcKey: 'NOAA-SWPC' },
+    { id: 3, level: 'INFO', msgKey: 'HANDOVER', time: "08:00:00 UTC", active: false, catKey: 'SYSTEM', srcKey: 'AUTO' },
+    { id: 4, level: 'CRITICAL', msgKey: 'LOSS', time: "07:42:11 UTC", active: true, catKey: 'COMMS', srcKey: 'SYS_MON' },
+    { id: 5, level: 'INFO', msgKey: 'MANEUVER', time: "06:30:00 UTC", active: false, catKey: 'ORBITAL', srcKey: 'TELEMETRY' },
   ]);
 
   const [filter, setFilter] = useState<'ALL'|'CRITICAL'|'SYSTEM'>('ALL');
@@ -25,7 +29,7 @@ const AlertsView: React.FC<AlertsViewProps> = ({ language }) => {
   const filteredAlerts = alerts.filter(a => {
       if (filter === 'ALL') return true;
       if (filter === 'CRITICAL') return a.level === 'CRITICAL';
-      if (filter === 'SYSTEM') return a.category === 'SYSTEM' || a.category === 'COMMS';
+      if (filter === 'SYSTEM') return a.catKey === 'SYSTEM' || a.catKey === 'COMMS';
       return true;
   });
 
@@ -35,6 +39,12 @@ const AlertsView: React.FC<AlertsViewProps> = ({ language }) => {
 
   const criticalCount = alerts.filter(a => a.level === 'CRITICAL' && a.active).length;
 
+  const getLevelLabel = (level: string) => {
+      if (level === 'CRITICAL') return riskLabels.CRITICAL;
+      if (level === 'WARNING') return riskLabels.MEDIUM; // Warning maps to Medium/Caution roughly
+      return riskLabels.LOW;
+  };
+
   return (
     <div className="p-6 h-full overflow-y-auto bg-slate-950 relative font-mono">
       {/* Top Dashboard Stats */}
@@ -42,7 +52,7 @@ const AlertsView: React.FC<AlertsViewProps> = ({ language }) => {
          <div className={`p-4 rounded border ${criticalCount > 0 ? 'bg-red-950/30 border-red-500/50' : 'bg-green-950/30 border-green-500/50'}`}>
              <div className="text-xs text-slate-400 uppercase tracking-widest mb-1">{t.threatLevel}</div>
              <div className={`text-2xl font-bold ${criticalCount > 0 ? 'text-red-500 animate-pulse' : 'text-green-500'}`}>
-                 {criticalCount > 0 ? 'DEFCON 3' : 'DEFCON 5'}
+                 {t.defcon} {criticalCount > 0 ? '3' : '5'}
              </div>
          </div>
          <div className="p-4 rounded border border-cyan-900/30 bg-slate-900/30">
@@ -104,14 +114,14 @@ const AlertsView: React.FC<AlertsViewProps> = ({ language }) => {
                                       ${alert.level === 'CRITICAL' ? 'border-red-900 bg-red-950/50 text-red-400' : 
                                         alert.level === 'WARNING' ? 'border-orange-900 bg-orange-950/50 text-orange-400' : 
                                         'border-cyan-900 bg-cyan-950/50 text-cyan-400'}`}>
-                                      {alert.level}
+                                      {getLevelLabel(alert.level)}
                                   </span>
                               </td>
                               <td className="p-3 text-slate-400 font-mono">{alert.time}</td>
-                              <td className="p-3 text-slate-300">{alert.category}</td>
-                              <td className="p-3 text-slate-500">{alert.source}</td>
+                              <td className="p-3 text-slate-300">{(categories as any)[alert.catKey]}</td>
+                              <td className="p-3 text-slate-500">{(sources as any)[alert.srcKey]}</td>
                               <td className={`p-3 font-bold ${alert.active ? 'text-white' : 'text-slate-500'}`}>
-                                  {alert.msg}
+                                  {(messages as any)[alert.msgKey]}
                               </td>
                               <td className="p-3 text-right">
                                   {alert.active && (

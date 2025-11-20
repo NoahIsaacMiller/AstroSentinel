@@ -1,8 +1,7 @@
-
 import React, { useEffect, useRef, useState } from 'react';
-import { SpaceTarget } from '../types';
+import { SpaceTarget, Language } from '../types';
 import { PhysicsEngine } from '../utils';
-import { GROUND_STATIONS } from '../constants';
+import { GROUND_STATIONS, DSN_NAMES } from '../constants';
 
 interface OrbitVisualizerProps {
   targets: SpaceTarget[];
@@ -10,6 +9,7 @@ interface OrbitVisualizerProps {
   selectedTargetId: string | null;
   onSelectTarget: (id: string) => void;
   currentTime: number;
+  language: Language;
 }
 
 const OrbitVisualizer: React.FC<OrbitVisualizerProps> = ({
@@ -18,16 +18,22 @@ const OrbitVisualizer: React.FC<OrbitVisualizerProps> = ({
   selectedTargetId,
   onSelectTarget,
   currentTime,
+  language,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   
+  // Ref to store visible objects' screen positions for click detection
+  // [{ id: 'ISS', x: 100, y: 100 }, ...]
+  const hitBoxes = useRef<{id: string, x: number, y: number}[]>([]);
+
   // Initial View State
   const [rotation, setRotation] = useState({ x: 0.8, y: 0.3 }); 
   const [zoom, setZoom] = useState(3.0); 
   
   const isDragging = useRef(false);
   const lastMouse = useRef({ x: 0, y: 0 });
+  const startMouse = useRef({ x: 0, y: 0 }); // For click detection (drag threshold)
   
   const EARTH_RADIUS_VIZ = 60;
   const FIELD_OF_VIEW = 1000;
@@ -52,9 +58,9 @@ const OrbitVisualizer: React.FC<OrbitVisualizerProps> = ({
   const handleMouseDown = (e: React.MouseEvent) => {
     isDragging.current = true;
     lastMouse.current = { x: e.clientX, y: e.clientY };
+    startMouse.current = { x: e.clientX, y: e.clientY };
   };
   
-  // Inverted controls for natural feel (drag world)
   const handleMouseMove = (e: React.MouseEvent) => {
     if (isDragging.current) {
       const deltaX = e.clientX - lastMouse.current.x;
@@ -66,9 +72,44 @@ const OrbitVisualizer: React.FC<OrbitVisualizerProps> = ({
       lastMouse.current = { x: e.clientX, y: e.clientY };
     }
   };
-  const handleMouseUp = () => isDragging.current = false;
+
+  // Handle Click (Selection)
+  const handleMouseUp = (e: React.MouseEvent) => {
+    isDragging.current = false;
+    
+    // Check if this was a click or a drag
+    const moveX = Math.abs(e.clientX - startMouse.current.x);
+    const moveY = Math.abs(e.clientY - startMouse.current.y);
+    
+    if (moveX < 5 && moveY < 5) {
+       // It's a click! Check hitboxes
+       const rect = canvasRef.current?.getBoundingClientRect();
+       if (!rect) return;
+       
+       const clickX = e.clientX - rect.left;
+       const clickY = e.clientY - rect.top;
+       
+       let closestId = null;
+       let minDist = 15; // Hit radius
+
+       for (const box of hitBoxes.current) {
+          const dx = clickX - box.x;
+          const dy = clickY - box.y;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          if (dist < minDist) {
+             minDist = dist;
+             closestId = box.id;
+          }
+       }
+
+       if (closestId) {
+          onSelectTarget(closestId);
+       } else {
+          onSelectTarget('');
+       }
+    }
+  };
   
-  // Enhanced Zoom: 0.5x to 50x
   const handleWheel = (e: React.WheelEvent) => {
     setZoom(prev => {
        const delta = -e.deltaY * 0.002 * prev; 
@@ -87,6 +128,9 @@ const OrbitVisualizer: React.FC<OrbitVisualizerProps> = ({
     const height = canvas.height;
     const cx = width / 2;
     const cy = height / 2;
+    
+    // Reset hitboxes for this frame
+    hitBoxes.current = [];
 
     // 3D Projection Function
     const project = (x: number, y: number, z: number) => {
@@ -136,7 +180,6 @@ const OrbitVisualizer: React.FC<OrbitVisualizerProps> = ({
     const center = project(0, 0, 0);
 
     // --- EARTH RENDERING ---
-    // Accurate Physics Rotation
     const earthRot = PhysicsEngine.getGMST(currentTime);
 
     renderQueue.push({
@@ -146,22 +189,22 @@ const OrbitVisualizer: React.FC<OrbitVisualizerProps> = ({
 
          if (r < 0) return;
 
-         // 1. Atmosphere Glow (Subtle)
+         // 1. Atmosphere Glow
          const atmGrad = ctx.createRadialGradient(center.x, center.y, r, center.x, center.y, r * 1.2);
-         atmGrad.addColorStop(0, 'rgba(56, 189, 248, 0.1)'); // Sky blue low opacity
+         atmGrad.addColorStop(0, 'rgba(56, 189, 248, 0.1)'); 
          atmGrad.addColorStop(1, 'rgba(0,0,0,0)');
          ctx.fillStyle = atmGrad;
          ctx.beginPath(); ctx.arc(center.x, center.y, r * 1.2, 0, Math.PI*2); ctx.fill();
 
-         // 2. Earth Base (Brighter Ocean Blue)
+         // 2. Earth Base
          const sphereGrad = ctx.createRadialGradient(center.x - r*0.3, center.y - r*0.3, r * 0.1, center.x, center.y, r);
-         sphereGrad.addColorStop(0, '#2563eb'); // Blue 600 (Highlight)
-         sphereGrad.addColorStop(0.6, '#1e3a8a'); // Blue 900 (Mid ocean)
-         sphereGrad.addColorStop(1, '#020617'); // Deep shadow edge
+         sphereGrad.addColorStop(0, '#2563eb'); 
+         sphereGrad.addColorStop(0.6, '#1e3a8a'); 
+         sphereGrad.addColorStop(1, '#020617'); 
          ctx.fillStyle = sphereGrad;
          ctx.beginPath(); ctx.arc(center.x, center.y, r, 0, Math.PI*2); ctx.fill();
          
-         // 3. Holographic Grid (Subtle)
+         // 3. Grid
          ctx.lineWidth = Math.max(0.5 * center.scale, 0.1);
          
          // Latitudes
@@ -203,7 +246,7 @@ const OrbitVisualizer: React.FC<OrbitVisualizerProps> = ({
             ctx.stroke();
          }
 
-         // 4. Night Side Shadow (Terminator)
+         // 4. Night Side Shadow
          const shadowGrad = ctx.createRadialGradient(center.x + r*0.7, center.y - r*0.3, r * 0.1, center.x, center.y, r);
          shadowGrad.addColorStop(0, 'rgba(0,0,0,0)');
          shadowGrad.addColorStop(0.5, 'rgba(0,0,0,0.3)');
@@ -211,66 +254,6 @@ const OrbitVisualizer: React.FC<OrbitVisualizerProps> = ({
          ctx.fillStyle = shadowGrad;
          ctx.beginPath(); ctx.arc(center.x, center.y, r, 0, Math.PI*2); ctx.fill();
       }
-    });
-
-    // --- GROUND STATIONS ---
-    GROUND_STATIONS.forEach(station => {
-       const latRad = station.lat * (Math.PI/180);
-       const theta = (station.lon * (Math.PI/180)) + earthRot;
-       
-       const px = EARTH_RADIUS_VIZ * Math.cos(latRad) * Math.sin(theta);
-       const py = EARTH_RADIUS_VIZ * Math.sin(latRad);
-       const pz = EARTH_RADIUS_VIZ * Math.cos(latRad) * Math.cos(theta);
-       
-       const p = project(px, py, pz);
-       
-       if (p.visible && p.z > -10) {
-           renderQueue.push({
-               z: p.z,
-               draw: () => {
-                   ctx.fillStyle = '#22c55e'; // Green
-                   ctx.beginPath();
-                   const s = 3 * p.scale;
-                   ctx.moveTo(p.x, p.y - s);
-                   ctx.lineTo(p.x - s, p.y + s);
-                   ctx.lineTo(p.x + s, p.y + s);
-                   ctx.fill();
-                   
-                   ctx.fillStyle = '#fff';
-                   ctx.font = `${8 * p.scale}px monospace`;
-                   ctx.fillText(station.id, p.x + s, p.y);
-               }
-           });
-       }
-
-       // --- LINKS TO SATELLITES ---
-       targets.forEach(target => {
-           const lookAngle = PhysicsEngine.getLookAngle(station, target, currentTime);
-           if (lookAngle > 5) { // Visible
-               const satPos = PhysicsEngine.getPosition(target, currentTime);
-               const satP = project(satPos.x, satPos.y, satPos.z);
-               
-               if (p.visible && satP.visible) {
-                   renderQueue.push({
-                       z: (p.z + satP.z) / 2,
-                       draw: () => {
-                           const grad = ctx.createLinearGradient(p.x, p.y, satP.x, satP.y);
-                           grad.addColorStop(0, 'rgba(34, 197, 94, 0.8)');
-                           grad.addColorStop(1, 'rgba(34, 197, 94, 0.1)');
-                           
-                           ctx.beginPath();
-                           ctx.moveTo(p.x, p.y);
-                           ctx.lineTo(satP.x, satP.y);
-                           ctx.strokeStyle = grad;
-                           ctx.lineWidth = 1;
-                           ctx.setLineDash([4, 4]);
-                           ctx.stroke();
-                           ctx.setLineDash([]);
-                       }
-                   });
-               }
-           }
-       });
     });
 
     // --- TARGETS & ORBITS ---
@@ -315,6 +298,9 @@ const OrbitVisualizer: React.FC<OrbitVisualizerProps> = ({
 
        if (!scr.visible) return;
 
+       // Register hit box
+       hitBoxes.current.push({ id: target.id, x: scr.x, y: scr.y });
+
        renderQueue.push({
           z: scr.z,
           draw: () => {
@@ -337,7 +323,7 @@ const OrbitVisualizer: React.FC<OrbitVisualizerProps> = ({
              if (target.id === selectedTargetId) {
                 size = 4 * center.scale * 0.5; // Scale up selected
              } else {
-                size = 1.5; // Fixed small dot size for all others, regardless of zoom
+                size = 1.5; // Fixed small dot size for all others
              }
              
              ctx.fillStyle = target.id === selectedTargetId ? '#fff' : target.orbit.color;
@@ -380,7 +366,7 @@ const OrbitVisualizer: React.FC<OrbitVisualizerProps> = ({
     renderQueue.sort((a, b) => a.z - b.z); 
     renderQueue.forEach(item => item.draw());
 
-  }, [targets, showOrbits, selectedTargetId, rotation, zoom, currentTime]);
+  }, [targets, showOrbits, selectedTargetId, rotation, zoom, currentTime, language]);
 
   useEffect(() => {
     const resize = () => {
@@ -401,9 +387,8 @@ const OrbitVisualizer: React.FC<OrbitVisualizerProps> = ({
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
+      onMouseLeave={() => isDragging.current = false}
       onWheel={handleWheel}
-      onClick={() => onSelectTarget('')}
     >
       <div className="absolute bottom-4 left-4 pointer-events-none text-[10px] text-slate-600 font-mono">
          ZOOM: {zoom.toFixed(2)}x

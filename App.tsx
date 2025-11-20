@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import Header from './components/Header';
 import Navigation from './components/Navigation';
@@ -108,6 +107,7 @@ const App: React.FC = () => {
                 selectedTargetId={selectedTargetId}
                 onSelectTarget={setSelectedTargetId}
                 currentTime={simulationTime}
+                language={language}
               />
               
               {/* Time HUD */}

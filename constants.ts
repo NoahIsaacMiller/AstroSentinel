@@ -32,10 +32,54 @@ export const RISK_LABELS = {
 
 // Real Ground Stations
 export const GROUND_STATIONS: GroundStation[] = [
-  { id: 'DSN-1', name: 'Goldstone (USA)', lat: 35.426, lon: -116.89, alt: 1.0 },
-  { id: 'DSN-2', name: 'Madrid (ESP)', lat: 40.425, lon: -4.248, alt: 0.8 },
-  { id: 'DSN-3', name: 'Canberra (AUS)', lat: -35.401, lon: 148.98, alt: 0.6 },
+  { id: 'DSN-1', name: 'Goldstone', lat: 35.426, lon: -116.89, alt: 1.0 },
+  { id: 'DSN-2', name: 'Madrid', lat: 40.425, lon: -4.248, alt: 0.8 },
+  { id: 'DSN-3', name: 'Canberra', lat: -35.401, lon: 148.98, alt: 0.6 },
 ];
+
+// Translations for DSN
+export const DSN_NAMES = {
+  [Language.EN]: { 'DSN-1': 'Goldstone (USA)', 'DSN-2': 'Madrid (ESP)', 'DSN-3': 'Canberra (AUS)' },
+  [Language.CN]: { 'DSN-1': '戈尔德斯通 (美)', 'DSN-2': '马德里 (西)', 'DSN-3': '堪培拉 (澳)' },
+  [Language.JP]: { 'DSN-1': 'ゴールドストーン', 'DSN-2': 'マドリード', 'DSN-3': 'キャンベラ' },
+};
+
+// Translations for Alert Data
+export const ALERT_DATA = {
+  CATEGORIES: {
+    [Language.EN]: { 'ORBITAL': 'ORBITAL', 'WEATHER': 'SPACE WEATHER', 'SYSTEM': 'SYSTEM', 'COMMS': 'COMMS' },
+    [Language.CN]: { 'ORBITAL': '轨道事件', 'WEATHER': '太空天气', 'SYSTEM': '系统消息', 'COMMS': '通信链路' },
+    [Language.JP]: { 'ORBITAL': '軌道イベント', 'WEATHER': '宇宙天気', 'SYSTEM': 'システム', 'COMMS': '通信' },
+  },
+  SOURCES: {
+    [Language.EN]: { 'RADAR-1': 'RADAR-1', 'NOAA-SWPC': 'NOAA-SWPC', 'AUTO': 'AUTO', 'SYS_MON': 'SYS_MON', 'TELEMETRY': 'TELEMETRY' },
+    [Language.CN]: { 'RADAR-1': '雷达阵列-1', 'NOAA-SWPC': 'NOAA空间中心', 'AUTO': '自动系统', 'SYS_MON': '系统监控', 'TELEMETRY': '遥测数据' },
+    [Language.JP]: { 'RADAR-1': 'レーダー1', 'NOAA-SWPC': 'NOAA宇宙センター', 'AUTO': '自動', 'SYS_MON': '監視システム', 'TELEMETRY': 'テレメトリ' },
+  },
+  MESSAGES: {
+    [Language.EN]: {
+      'COL_VEC': 'COLLISION VECTOR DETECTED: ISS / DEB-992',
+      'SOLAR': 'SOLAR FLARE (X-CLASS) INBOUND',
+      'HANDOVER': 'GROUND STATION HANDOVER: DSN-3',
+      'LOSS': 'LOSS OF TELEMETRY: STARLINK-1001',
+      'MANEUVER': 'ORBITAL MANEUVER COMPLETE: CSS'
+    },
+    [Language.CN]: {
+      'COL_VEC': '检测到碰撞矢量: ISS / DEB-992',
+      'SOLAR': '太阳耀斑 (X级) 抵达预警',
+      'HANDOVER': '地面站交接完成: 堪培拉站',
+      'LOSS': '遥测信号丢失: STARLINK-1001',
+      'MANEUVER': '变轨机动完成: 中国空间站'
+    },
+    [Language.JP]: {
+      'COL_VEC': '衝突進路検知: ISS / DEB-992',
+      'SOLAR': '太陽フレア (Xクラス) 接近中',
+      'HANDOVER': '地上局ハンドオーバー: DSN-3',
+      'LOSS': 'テレメトリ消失: STARLINK-1001',
+      'MANEUVER': '軌道修正完了: CSS'
+    }
+  }
+};
 
 export const TRANSLATIONS = {
   [Language.EN]: {
@@ -79,20 +123,24 @@ export const TRANSLATIONS = {
     },
     system: {
       title: "System Status Dashboard",
-      cpu: "CPU Load (24h)",
+      cpu: "CPU Usage",
       mem: "Memory Usage",
-      net: "Network Traffic",
-      sensors: "Global Sensor Heatmap",
-      power: "Storage Clusters",
-      topology: "Active Sessions",
+      disk: "Disk Usage",
+      loadAvg: "Avg Load",
+      netStatus: "Network Status",
+      onlineServers: "Online Servers",
+      serverStatus: "Server Status",
       online: "ONLINE",
       offline: "OFFLINE",
-      calibrating: "CALIBRATING",
-      logs: "Access Logs",
+      warning: "WARNING",
+      stable: "STABLE",
+      upload: "Upload",
+      download: "Download",
+      time15m: "15 Min",
+      time1h: "1 Hour",
+      time12h: "12 Hours",
       requests: "REQ/s",
       latency: "LATENCY",
-      cluster: "Cluster",
-      healthy: "HEALTHY",
     },
     targets: {
       title: "Orbital Object Database",
@@ -133,6 +181,7 @@ export const TRANSLATIONS = {
       ack: "ACKNOWLEDGE",
       resolved: "Resolved",
       threatLevel: "Threat Level",
+      defcon: "DEFCON",
       activeAlerts: "Active Alerts",
       systemStatus: "System Status",
       lastScan: "Last Scan",
@@ -206,20 +255,24 @@ export const TRANSLATIONS = {
     },
     system: {
       title: "系统综合监控仪表盘",
-      cpu: "CPU 负载趋势 (24h)",
-      mem: "内存占用历史",
-      net: "网络吞吐量",
-      sensors: "全球传感器热力图",
-      power: "存储集群状态",
-      topology: "活跃会话",
+      cpu: "CPU 占用率",
+      mem: "内存占用",
+      disk: "磁盘占用",
+      loadAvg: "平均负载 (Load)",
+      netStatus: "网络连接状态",
+      onlineServers: "在线服务器",
+      serverStatus: "服务器状态列表",
       online: "在线",
       offline: "离线",
-      calibrating: "校准中",
-      logs: "访问日志",
+      warning: "警告",
+      stable: "稳定",
+      upload: "上传",
+      download: "下载",
+      time15m: "15分钟",
+      time1h: "1小时",
+      time12h: "12小时",
       requests: "请求/秒",
       latency: "延迟 (ms)",
-      cluster: "集群",
-      healthy: "运行正常",
     },
     targets: {
       title: "轨道目标数据库",
@@ -260,6 +313,7 @@ export const TRANSLATIONS = {
       ack: "确认知悉",
       resolved: "已解决",
       threatLevel: "威胁等级",
+      defcon: "防御等级",
       activeAlerts: "活跃警报",
       systemStatus: "系统状态",
       lastScan: "上次扫描",
@@ -333,20 +387,24 @@ export const TRANSLATIONS = {
     },
     system: {
       title: "システム総合ダッシュボード",
-      cpu: "CPU負荷推移 (24h)",
+      cpu: "CPU使用率",
       mem: "メモリ使用率",
-      net: "ネットワークトラフィック",
-      sensors: "グローバルセンサー",
-      power: "ストレージクラスター",
-      topology: "アクティブセッション",
+      disk: "ディスク使用率",
+      loadAvg: "平均負荷 (Load)",
+      netStatus: "ネットワーク状態",
+      onlineServers: "オンラインサーバー",
+      serverStatus: "サーバーステータス",
       online: "オンライン",
       offline: "オフライン",
-      calibrating: "調整中",
-      logs: "アクセスログ",
+      warning: "警告",
+      stable: "安定",
+      upload: "アップロード",
+      download: "ダウンロード",
+      time15m: "15分",
+      time1h: "1時間",
+      time12h: "12時間",
       requests: "REQ/s",
       latency: "遅延 (ms)",
-      cluster: "クラスター",
-      healthy: "正常",
     },
     targets: {
       title: "軌道物体データベース",
@@ -387,6 +445,7 @@ export const TRANSLATIONS = {
       ack: "確認",
       resolved: "解決済み",
       threatLevel: "脅威レベル",
+      defcon: "防衛レベル",
       activeAlerts: "アクティブ警報",
       systemStatus: "システム状態",
       lastScan: "最終スキャン",

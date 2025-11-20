@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "5000:5000"
+    environment:
+      - DB_HOST=db
+      - DB_USER=astro
+      - DB_PASSWORD=spacecommand
+      - DB_NAME=astrosentinel
+      - REDIS_HOST=redis
+    depends_on:
+      - db
+      - redis
+    networks:
+      - space-net
+
+  db:
+    image: mysql:8.0
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_DATABASE=astrosentinel
+      - MYSQL_USER=astro
+      - MYSQL_PASSWORD=spacecommand
+    volumes:
+      - ./backend/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    ports:
+      - "3306:3306"
+    networks:
+      - space-net
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - space-net
+
+networks:
+  space-net:
+    driver: bridge
